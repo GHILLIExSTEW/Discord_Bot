@@ -1,0 +1,10 @@
+{
+  "tracked_user_ids": [111111111111111111],
+  "allowed_channel_ids": [],
+  "number_pattern": "(?i)(?<!\\d)([+-]?(?:\\d+(?:\\.\\d+)?))\\s*U\\b",
+  "require_keyword": "U",
+  "keyword_case_insensitive": true,
+  "ignore_bots": true,
+  "timezone": "America/New_York",
+  "result_channel_id": 0
+}
