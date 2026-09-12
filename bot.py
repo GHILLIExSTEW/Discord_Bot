@@ -218,24 +218,32 @@ async def on_message(message: discord.Message):
 
 @bot.event
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
+    print(f"DEBUG: Reaction detected - emoji: {payload.emoji}, channel: {payload.channel_id}, message: {payload.message_id}")
+    
     if payload.emoji is None:
+        print("DEBUG: Emoji is None, returning")
         return
 
     sign = reaction_sign(getattr(payload.emoji, "name", None))
+    print(f"DEBUG: Reaction sign: {sign} (emoji name: {getattr(payload.emoji, 'name', None)})")
     if sign == 0:
+        print("DEBUG: Sign is 0, not a tracked reaction")
         return
 
     if MONITORED_CHANNEL_ID and payload.channel_id != MONITORED_CHANNEL_ID:
+        print(f"DEBUG: Channel {payload.channel_id} != monitored {MONITORED_CHANNEL_ID}")
         return
 
     config = load_config()
     channel = bot.get_channel(payload.channel_id)
     if channel is None:
+        print(f"DEBUG: Channel {payload.channel_id} not found")
         return
 
     try:
         message = await channel.fetch_message(payload.message_id)
     except discord.NotFound:
+        print(f"DEBUG: Message {payload.message_id} not found")
         return
 
     values = extract_values(
@@ -244,10 +252,13 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
         keyword_case_insensitive=config.get("keyword_case_insensitive", True),
         pattern=config.get("number_pattern", r"(?i)(?<!\d)([+-]?(?:\d+(?:\.\d+)?))\s*U\b"),
     )
+    print(f"DEBUG: Extracted values: {values}")
     if not values:
+        print("DEBUG: No U values found in message")
         return
 
     result = "win" if sign > 0 else "loss"
+    print(f"DEBUG: Recording result: {result} for {values[0]}U")
     if supabase is not None:
         existing = supabase.table("unit_results").select("id").eq("message_id", str(payload.message_id)).eq("user_id", str(payload.user_id)).eq("result", result).execute()
         if existing.data:
