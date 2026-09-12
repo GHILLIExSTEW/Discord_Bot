@@ -1,5 +1,5 @@
 {
-  "tracked_user_ids": [111111111111111111],
+  "tracked_user_ids": [],
   "allowed_channel_ids": [],
   "number_pattern": "(?i)(?<!\\d)([+-]?(?:\\d+(?:\\.\\d+)?))\\s*U\\b",
   "require_keyword": "U",
