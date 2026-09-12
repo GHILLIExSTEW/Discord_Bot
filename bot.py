@@ -1,7 +1,7 @@
 import os
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import discord
 from dotenv import load_dotenv
@@ -288,32 +288,9 @@ async def scheduled_channel_update():
         logger.exception("Scheduled tracker update failed")
 
 
-@tasks.loop(hours=24)
-async def scheduled_channel_date_update():
-    try:
-        update_result_channel_date()
-    except (discord.HTTPException, Exception):
-        logger.exception("Scheduled channel date update failed")
-
-
 @scheduled_channel_update.before_loop
 async def wait_before_first_scheduled_update():
     await asyncio.sleep(300)
-
-
-@scheduled_channel_date_update.before_loop
-async def wait_before_first_channel_date_update():
-    config = load_config()
-    tz_name = config.get("timezone", "America/New_York")
-    try:
-        from zoneinfo import ZoneInfo
-        timezone = ZoneInfo(tz_name)
-    except Exception:
-        timezone = None
-
-    now = datetime.now(timezone) if timezone else datetime.now()
-    next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    await asyncio.sleep((next_midnight - now).total_seconds())
 
 
 async def update_daily_breakdown():
@@ -451,30 +428,6 @@ async def update_daily_breakdown():
             return
 
     await channel.send(embed=embed)
-
-
-def update_result_channel_date():
-    if not RESULT_CHANNEL_ID:
-        return
-
-    channel = bot.get_channel(RESULT_CHANNEL_ID)
-    if channel is None:
-        return
-
-    config = load_config()
-    tz_name = config.get("timezone", "America/New_York")
-    try:
-        from zoneinfo import ZoneInfo
-        timezone = ZoneInfo(tz_name)
-    except Exception:
-        timezone = None
-
-    now = datetime.now(timezone) if timezone else datetime.now()
-    month_names = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sept", "oct", "nov", "dec")
-    name = f"{month_names[now.month - 1]}-{now.day}-{now.year}"
-    if channel.name != name:
-        print(f"DEBUG: Renaming result channel to: {name}")
-        bot.loop.create_task(channel.edit(name=name))
 
 
 def is_tracker_admin(interaction: discord.Interaction) -> bool:
@@ -643,12 +596,9 @@ async def on_ready():
             await bot.user.edit(username="Playmaker Picks Team")
     except discord.HTTPException as error:
         print(f"DEBUG: Could not update bot username: {error}")
-    update_result_channel_date()
     await update_daily_breakdown()
     if not scheduled_channel_update.is_running():
         scheduled_channel_update.start()
-    if not scheduled_channel_date_update.is_running():
-        scheduled_channel_date_update.start()
     if not commands_synced:
         if GUILD_ID:
             guild = discord.Object(id=GUILD_ID)

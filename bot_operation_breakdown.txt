@@ -1,0 +1,87 @@
+PLAYMAKER PICKS BOT - OPERATION BREAKDOWN
+PLAYMAKER PICKS TRACKER
+PUBLIC GUIDE
+
+WHAT THE TRACKER DOES
+
+The Playmaker Picks tracker records eligible betting posts, tracks their results, and keeps a live summary of unit performance.
+
+Only members with an approved Playmaker role are included in tracking and leaderboards.
+
+HOW TO POST A BET
+
+Post one bet per message and include the unit amount at the end.
+
+Recommended format:
+
+Team or player - bet details - 2U
+
+Examples:
+
+Yankees ML - 2U
+Lakers -3.5 - 1U
+Chiefs moneyline - 0.5U
+Celtics spread - 1.5U
+
+UNIT RULES
+
+- Always include U after the unit amount.
+- Whole numbers and decimals are supported.
+- These formats are accepted: 1U, 2U, 0.5U, 1.5U, and 2 U.
+- Uppercase and lowercase U are accepted.
+- Use one bet per post.
+- The tracker records the first unit amount it finds in a post.
+- A number without U will not be counted.
+
+HOW TO RECORD A RESULT
+
+React to the original bet message:
+
+✅ means the bet won.
+❌ means the bet lost.
+
+The tracker checks that the result reaction comes from an eligible Playmaker and then records the result.
+
+If a result was added by mistake, remove the reaction. The matching result will be removed from the tracker.
+
+Do not add both ✅ and ❌ to the same bet. If both are added, the tracker keeps the most recent result for that user and bet.
+
+PENDING BETS
+
+A new bet remains pending until an eligible Playmaker adds a ✅ or ❌ reaction.
+
+Pending bets are displayed in the tracker summary. Old historical posts are not added back to the pending list during a history scan.
+
+WHAT THE TRACKER SHOWS
+
+The tracker message includes:
+
+- Daily results
+- 7-day performance
+- Month-to-date performance
+- Year-to-date performance
+- All-time performance
+- Pending bets
+- Top Playmakers
+- Full Playmaker breakdown
+- Wins and losses
+- Win/loss record
+- Net units
+- Win rate
+
+The Playmaker breakdown only includes members who currently have an approved Playmaker role.
+
+WHEN IT UPDATES
+
+The tracker message updates when the bot starts and then refreshes every four hours.
+
+The same tracker message is edited each time so the channel does not fill up with duplicates.
+
+IMPORTANT REMINDERS
+
+- Post bets in the monitored betting channel.
+- Include the unit amount in every bet post.
+- Use one bet per message.
+- Add a result reaction when the bet is settled.
+- Remove an incorrect reaction instead of adding a conflicting result.
+- Only approved Playmakers are included in the tracker.
