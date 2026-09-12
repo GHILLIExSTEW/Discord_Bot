@@ -72,22 +72,27 @@ def fetch_totals_for_window() -> dict[str, float]:
 
 def update_result_channel_name():
     if supabase is None:
+        print("DEBUG: Supabase is None")
         return
 
     channel_id = RESULT_CHANNEL_ID or MONITORED_CHANNEL_ID
     if not channel_id:
+        print("DEBUG: No channel ID set")
         return
 
     channel = bot.get_channel(channel_id)
     if channel is None:
+        print(f"DEBUG: Channel {channel_id} not found")
         return
 
     totals = fetch_totals_for_window()
     name = format_result_channel_name(totals["day"], totals["week"], totals["year"])
+    print(f"DEBUG: Updating channel to: {name}")
     try:
         bot.loop.create_task(channel.edit(name=name))
-    except Exception:
-        pass
+        print(f"DEBUG: Channel edit task created successfully")
+    except Exception as e:
+        print(f"DEBUG: Error updating channel: {e}")
 
 
 def insert_unit_entry(message: discord.Message, value: float, config: dict):
