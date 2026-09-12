@@ -136,9 +136,11 @@ async def scan_monitored_channel():
         return
 
     config = load_config()
-    async for message in channel.history(limit=200):
+    async for message in channel.history(limit=1000):
         if message.author.bot:
             continue
+        
+        # Extract U values
         values = extract_values(
             message.content,
             require_keyword=config.get("require_keyword", ""),
@@ -147,7 +149,33 @@ async def scan_monitored_channel():
         )
         if not values:
             continue
+        
+        # Record entry
         insert_unit_entry(message, values[0], config)
+        
+        # Check reactions on this message
+        for reaction in message.reactions:
+            sign = reaction_sign(getattr(reaction.emoji, "name", None))
+            if sign == 0:
+                continue
+            
+            result = "win" if sign > 0 else "loss"
+            # Record result for each user who reacted
+            async for user in reaction.users():
+                if user.bot:
+                    continue
+                
+                # Skip duplicate check - just record it
+                existing = supabase.table("unit_results").select("id").eq("message_id", str(message.id)).eq("user_id", str(user.id)).eq("result", result).execute()
+                if not existing.data:
+                    payload = {
+                        "user_id": str(user.id),
+                        "total_units": float(values[0]),
+                        "message_id": str(message.id),
+                        "result": result,
+                        "created_at": now_iso_for_config(config),
+                    }
+                    supabase.table("unit_results").insert(payload).execute()
 
 
 @bot.event
