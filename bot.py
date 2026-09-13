@@ -362,8 +362,7 @@ async def update_daily_breakdown():
         ranked_players.append((player_name, player, player_net))
         player_lines.append(
             f"**{player_name}**\n"
-            f"Wins: +{player['wins']:g} units  |  Losses: -{player['losses']:g} units\n"
-            f"Net: {player_net:+g} units  |  Record: {player['win_count']}-{player['loss_count']} "
+            f"Record: {player['win_count']}-{player['loss_count']} "
             f"({player['win_count'] / player['results'] * 100:.0f}% win rate)"
         )
 
