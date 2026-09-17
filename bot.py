@@ -523,6 +523,44 @@ async def validate_tracking_data() -> dict[str, int]:
     return summary
 
 
+def archive_tracking_data() -> dict[str, int]:
+    summary = {"entries_archived": 0, "results_archived": 0}
+    if supabase is None:
+        return summary
+
+    entries = fetch_all_rows("unit_entries", "user_id,total_units,message_id,created_at")
+    results = fetch_all_rows("unit_results", "user_id,total_units,message_id,result,created_at")
+
+    if entries:
+        for i in range(0, len(entries), 500):
+            supabase.table("unit_entries_archive").insert(entries[i:i + 500]).execute()
+        supabase.table("unit_entries").delete().gte("id", 0).execute()
+        summary["entries_archived"] = len(entries)
+
+    if results:
+        for i in range(0, len(results), 500):
+            supabase.table("unit_results_archive").insert(results[i:i + 500]).execute()
+        supabase.table("unit_results").delete().gte("id", 0).execute()
+        summary["results_archived"] = len(results)
+
+    return summary
+
+
+@command_tree.command(name="cache_tracker", description="Archive all unit entries and results, then reset the tracker")
+async def cache_tracker(interaction: discord.Interaction):
+    if not is_tracker_admin(interaction):
+        await interaction.response.send_message("You need Manage Server permission to use this command.", ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=True)
+    summary = archive_tracking_data()
+    await update_daily_breakdown()
+    await interaction.followup.send(
+        f"Cached {summary['entries_archived']} entries and {summary['results_archived']} results to the archive. "
+        "The tracker has been reset.",
+        ephemeral=True,
+    )
+
+
 @command_tree.command(name="refresh_tracker", description="Refresh the Playmaker Picks tracker embed now")
 async def refresh_tracker(interaction: discord.Interaction):
     if not is_tracker_admin(interaction):
