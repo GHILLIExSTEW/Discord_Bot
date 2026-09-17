@@ -610,7 +610,7 @@ async def role_members(interaction: discord.Interaction):
                 members_by_id.update({member.id: member for member in role.members})
     members = list(members_by_id.values())
     names = ", ".join(member.display_name for member in members) or "No members found."
-    await interaction.response.send_message(f"Tracking role members ({len(members)}): {names}", ephemeral=True)
+    await interaction.response.send_message(f"Tracking role members ({len(members)}): {names}")
 
 
 @bot.event
