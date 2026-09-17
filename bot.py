@@ -1,7 +1,8 @@
 import os
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
+from pathlib import Path
 
 import discord
 from dotenv import load_dotenv
@@ -29,6 +30,8 @@ TRACKED_ROLE_IDS = {
     for role_id in os.getenv("TRACKED_ROLE_IDS", os.getenv("TRACKED_ROLE_ID", "")).split(",")
     if role_id.strip().isdigit()
 }
+PLAYMAKER_ROLE_ID = int(os.getenv("PLAYMAKER_ROLE_ID", "0")) if os.getenv("PLAYMAKER_ROLE_ID") else None
+PLAYMAKER_MEDIA_DIR = Path("media/playmakers")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -666,6 +669,77 @@ async def validate_duplicates(interaction: discord.Interaction):
         f"Total duplicates removed: {total_removed}",
         ephemeral=True,
     )
+
+
+@command_tree.command(name="add_playmaker", description="Add a member as a tracked playmaker and grant them the role")
+@discord.app_commands.describe(member="The member to add as a playmaker")
+async def add_playmaker(interaction: discord.Interaction, member: discord.Member):
+    if not is_tracker_admin(interaction):
+        await interaction.response.send_message("You need Manage Server permission to use this command.", ephemeral=True)
+        return
+    if supabase is None:
+        await interaction.response.send_message("Database is not configured.", ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=True)
+
+    existing = supabase.table("playmakers").select("id").eq("user_id", str(member.id)).execute()
+    already_existed = bool(existing.data)
+    if not already_existed:
+        supabase.table("playmakers").insert({
+            "user_id": str(member.id),
+            "display_name": member.display_name,
+        }).execute()
+
+    role_assigned = False
+    if PLAYMAKER_ROLE_ID:
+        role = interaction.guild.get_role(PLAYMAKER_ROLE_ID)
+        if role and role not in member.roles:
+            try:
+                await member.add_roles(role, reason="Added as a tracked playmaker")
+                role_assigned = True
+            except discord.HTTPException:
+                logger.exception("Failed to assign playmaker role to %s", member.id)
+
+    if already_existed:
+        await interaction.followup.send(f"{member.display_name} is already added as a playmaker.", ephemeral=True)
+        return
+    suffix = " and granted the role." if role_assigned else "."
+    await interaction.followup.send(f"Added {member.display_name} as a playmaker{suffix}", ephemeral=True)
+
+
+@command_tree.command(name="initialize", description="Set your playmaker display name and stat card image")
+@discord.app_commands.describe(image="The image to use for your stat card", display_name="The name to show on your stat card")
+async def initialize(interaction: discord.Interaction, image: discord.Attachment, display_name: str):
+    member = interaction.guild.get_member(interaction.user.id) if interaction.guild else None
+    if not member or not any(role.id == PLAYMAKER_ROLE_ID for role in member.roles):
+        await interaction.response.send_message("You need the playmaker role to use this command.", ephemeral=True)
+        return
+    if supabase is None:
+        await interaction.response.send_message("Database is not configured.", ephemeral=True)
+        return
+    if not image.content_type or not image.content_type.startswith("image/"):
+        await interaction.response.send_message("Please upload an image file.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True)
+    PLAYMAKER_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+    extension = Path(image.filename).suffix or ".png"
+    file_path = PLAYMAKER_MEDIA_DIR / f"{member.id}{extension}"
+    await image.save(file_path)
+
+    payload = {
+        "user_id": str(member.id),
+        "display_name": display_name,
+        "image_path": str(file_path),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    existing = supabase.table("playmakers").select("id").eq("user_id", str(member.id)).execute()
+    if existing.data:
+        supabase.table("playmakers").update(payload).eq("user_id", str(member.id)).execute()
+    else:
+        supabase.table("playmakers").insert(payload).execute()
+
+    await interaction.followup.send("Your playmaker profile has been updated.", ephemeral=True)
 
 
 @command_tree.command(name="role_members", description="List current members of the tracking role")
