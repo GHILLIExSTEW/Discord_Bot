@@ -532,16 +532,27 @@ def archive_tracking_data() -> dict[str, int]:
     results = fetch_all_rows("unit_results", "user_id,total_units,message_id,result,created_at")
 
     if entries:
-        for i in range(0, len(entries), 500):
-            supabase.table("unit_entries_archive").insert(entries[i:i + 500]).execute()
+        # A prior run may have archived some rows without clearing them from the live table.
+        already_archived = {row.get("message_id") for row in fetch_all_rows("unit_entries_archive", "message_id")}
+        new_entries = [row for row in entries if row.get("message_id") not in already_archived]
+        for i in range(0, len(new_entries), 500):
+            supabase.table("unit_entries_archive").insert(new_entries[i:i + 500]).execute()
         supabase.table("unit_entries").delete().gte("id", 0).execute()
-        summary["entries_archived"] = len(entries)
+        summary["entries_archived"] = len(new_entries)
 
     if results:
-        for i in range(0, len(results), 500):
-            supabase.table("unit_results_archive").insert(results[i:i + 500]).execute()
+        already_archived = {
+            (row.get("message_id"), row.get("user_id"), row.get("result"))
+            for row in fetch_all_rows("unit_results_archive", "message_id,user_id,result")
+        }
+        new_results = [
+            row for row in results
+            if (row.get("message_id"), row.get("user_id"), row.get("result")) not in already_archived
+        ]
+        for i in range(0, len(new_results), 500):
+            supabase.table("unit_results_archive").insert(new_results[i:i + 500]).execute()
         supabase.table("unit_results").delete().gte("id", 0).execute()
-        summary["results_archived"] = len(results)
+        summary["results_archived"] = len(new_results)
 
     return summary
 
@@ -552,8 +563,13 @@ async def cache_tracker(interaction: discord.Interaction):
         await interaction.response.send_message("You need Manage Server permission to use this command.", ephemeral=True)
         return
     await interaction.response.defer(ephemeral=True)
-    summary = archive_tracking_data()
-    await update_daily_breakdown()
+    try:
+        summary = archive_tracking_data()
+        await update_daily_breakdown()
+    except Exception:
+        logger.exception("cache_tracker failed")
+        await interaction.followup.send("Caching failed. Check the bot log for details.", ephemeral=True)
+        return
     await interaction.followup.send(
         f"Cached {summary['entries_archived']} entries and {summary['results_archived']} results to the archive. "
         "The tracker has been reset.",
