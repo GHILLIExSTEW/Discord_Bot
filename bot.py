@@ -613,6 +613,61 @@ async def validate_tracking(interaction: discord.Interaction):
     )
 
 
+def dedupe_table(table: str, key_columns: list[str]) -> dict[str, int]:
+    if supabase is None:
+        return {"checked": 0, "duplicates_removed": 0}
+
+    rows = fetch_all_rows(table, "id," + ",".join(key_columns))
+    rows.sort(key=lambda row: row.get("id", 0))
+
+    seen = set()
+    duplicate_ids = []
+    for row in rows:
+        key = tuple(row.get(column) for column in key_columns)
+        if key in seen:
+            duplicate_ids.append(row["id"])
+        else:
+            seen.add(key)
+
+    for i in range(0, len(duplicate_ids), 500):
+        supabase.table(table).delete().in_("id", duplicate_ids[i:i + 500]).execute()
+
+    return {"checked": len(rows), "duplicates_removed": len(duplicate_ids)}
+
+
+@command_tree.command(name="validate_duplicates", description="Check tracker tables for duplicate rows and remove them")
+async def validate_duplicates(interaction: discord.Interaction):
+    if not is_tracker_admin(interaction):
+        await interaction.response.send_message("You need Manage Server permission to use this command.", ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=True)
+    try:
+        entries = dedupe_table("unit_entries", ["message_id"])
+        results = dedupe_table("unit_results", ["message_id", "user_id", "result"])
+        entries_archive = dedupe_table("unit_entries_archive", ["message_id"])
+        results_archive = dedupe_table("unit_results_archive", ["message_id", "user_id", "result"])
+    except Exception:
+        logger.exception("validate_duplicates failed")
+        await interaction.followup.send("Duplicate check failed. Check the bot log for details.", ephemeral=True)
+        return
+
+    total_removed = (
+        entries["duplicates_removed"]
+        + results["duplicates_removed"]
+        + entries_archive["duplicates_removed"]
+        + results_archive["duplicates_removed"]
+    )
+    await interaction.followup.send(
+        "Duplicate check complete.\n"
+        f"unit_entries: {entries['checked']} checked, {entries['duplicates_removed']} removed\n"
+        f"unit_results: {results['checked']} checked, {results['duplicates_removed']} removed\n"
+        f"unit_entries_archive: {entries_archive['checked']} checked, {entries_archive['duplicates_removed']} removed\n"
+        f"unit_results_archive: {results_archive['checked']} checked, {results_archive['duplicates_removed']} removed\n"
+        f"Total duplicates removed: {total_removed}",
+        ephemeral=True,
+    )
+
+
 @command_tree.command(name="role_members", description="List current members of the tracking role")
 async def role_members(interaction: discord.Interaction):
     if not is_tracker_admin(interaction):
