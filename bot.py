@@ -675,6 +675,7 @@ async def validate_duplicates(interaction: discord.Interaction):
 
 async def compute_playmaker_stats(user_id: str, guild: discord.Guild) -> dict:
     rows = fetch_all_rows("unit_results", "user_id,total_units,result,created_at")
+    rows += fetch_all_rows("unit_results_archive", "user_id,total_units,result,created_at")
     tracked_ids = await current_tracked_user_ids({str(row.get("user_id")) for row in rows}, guild)
     rows = [row for row in rows if str(row.get("user_id")) in tracked_ids]
 
