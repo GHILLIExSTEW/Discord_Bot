@@ -722,7 +722,7 @@ async def compute_playmaker_stats(user_id: str, guild: discord.Guild) -> dict:
 
 
 def generate_stat_card(display_name: str, image_path: str | None, stats: dict) -> BytesIO:
-    width, height = 900, 520
+    width, height = 1100, 520
     card = Image.new("RGB", (width, height), color=(18, 18, 22))
 
     if image_path and Path(image_path).exists():
@@ -741,33 +741,33 @@ def generate_stat_card(display_name: str, image_path: str | None, stats: dict) -
     except TypeError:
         title_font = header_font = body_font = ImageFont.load_default()
 
-    draw.text((360, 30), display_name, font=title_font, fill=(255, 255, 255))
+    draw.text((580, 30), display_name, font=title_font, fill=(255, 255, 255))
 
     net = stats["net_units"]
     net_color = (86, 214, 122) if net > 0 else (224, 90, 90) if net < 0 else (220, 220, 220)
-    draw.text((360, 100), f"Net: {net:+g} units", font=header_font, fill=net_color)
+    draw.text((580, 100), f"Net: {net:+g} units", font=header_font, fill=net_color)
     draw.text(
-        (360, 140),
+        (580, 140),
         f"Record: {stats['win_count']}-{stats['loss_count']} ({stats['win_rate']:.0f}% win rate)",
         font=body_font,
         fill=(220, 220, 220),
     )
     draw.text(
-        (360, 175),
+        (580, 175),
         f"Wins: +{stats['win_units']:g}u   Losses: -{stats['loss_units']:g}u",
         font=body_font,
         fill=(220, 220, 220),
     )
 
     rank_text = f"Rank #{stats['rank']} of {stats['pool_size']}" if stats["rank"] else "Not yet ranked"
-    draw.text((360, 220), rank_text, font=body_font, fill=(220, 220, 220))
+    draw.text((580, 220), rank_text, font=body_font, fill=(220, 220, 220))
 
-    draw.text((360, 280), "Hottest Months", font=header_font, fill=(255, 255, 255))
+    draw.text((580, 280), "Hottest Months", font=header_font, fill=(255, 255, 255))
     if stats["top_months"]:
         for i, (month, month_net) in enumerate(stats["top_months"]):
-            draw.text((360, 320 + i * 35), f"{month}: {month_net:+g} units", font=body_font, fill=(220, 220, 220))
+            draw.text((580, 320 + i * 35), f"{month}: {month_net:+g} units", font=body_font, fill=(220, 220, 220))
     else:
-        draw.text((360, 320), "No settled results yet", font=body_font, fill=(220, 220, 220))
+        draw.text((580, 320), "No settled results yet", font=body_font, fill=(220, 220, 220))
 
     buffer = BytesIO()
     card.save(buffer, format="PNG")
