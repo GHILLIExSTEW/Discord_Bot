@@ -2,10 +2,12 @@ import os
 import asyncio
 import logging
 from datetime import datetime, timezone
+from io import BytesIO
 from pathlib import Path
 
 import discord
 from dotenv import load_dotenv
+from PIL import Image, ImageDraw, ImageFont
 from supabase import Client, create_client
 from discord.ext import tasks
 
@@ -667,6 +669,153 @@ async def validate_duplicates(interaction: discord.Interaction):
         f"unit_entries_archive: {entries_archive['checked']} checked, {entries_archive['duplicates_removed']} removed\n"
         f"unit_results_archive: {results_archive['checked']} checked, {results_archive['duplicates_removed']} removed\n"
         f"Total duplicates removed: {total_removed}",
+        ephemeral=True,
+    )
+
+
+async def compute_playmaker_stats(user_id: str, guild: discord.Guild) -> dict:
+    rows = fetch_all_rows("unit_results", "user_id,total_units,result,created_at")
+    tracked_ids = await current_tracked_user_ids({str(row.get("user_id")) for row in rows}, guild)
+    rows = [row for row in rows if str(row.get("user_id")) in tracked_ids]
+
+    net_by_user: dict[str, float] = {}
+    for row in rows:
+        amount = float(row.get("total_units", 0) or 0)
+        signed = amount if row.get("result") == "win" else -amount
+        net_by_user[str(row.get("user_id"))] = net_by_user.get(str(row.get("user_id")), 0.0) + signed
+
+    ranking = sorted(net_by_user.items(), key=lambda item: item[1], reverse=True)
+    rank = next((index + 1 for index, (uid, _) in enumerate(ranking) if uid == user_id), None)
+
+    user_rows = [row for row in rows if str(row.get("user_id")) == user_id]
+    wins = [row for row in user_rows if row.get("result") == "win"]
+    losses = [row for row in user_rows if row.get("result") == "loss"]
+    win_units = sum(float(row.get("total_units", 0) or 0) for row in wins)
+    loss_units = sum(float(row.get("total_units", 0) or 0) for row in losses)
+    total_results = len(user_rows)
+    win_rate = (len(wins) / total_results * 100) if total_results else 0.0
+
+    monthly: dict[str, float] = {}
+    for row in user_rows:
+        try:
+            created_at = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00"))
+        except (KeyError, TypeError, ValueError):
+            continue
+        amount = float(row.get("total_units", 0) or 0)
+        signed = amount if row.get("result") == "win" else -amount
+        month_key = created_at.strftime("%B %Y")
+        monthly[month_key] = monthly.get(month_key, 0.0) + signed
+    top_months = sorted(monthly.items(), key=lambda item: item[1], reverse=True)[:3]
+
+    return {
+        "win_count": len(wins),
+        "loss_count": len(losses),
+        "win_units": win_units,
+        "loss_units": loss_units,
+        "net_units": win_units - loss_units,
+        "win_rate": win_rate,
+        "total_results": total_results,
+        "rank": rank,
+        "pool_size": len(ranking),
+        "top_months": top_months,
+    }
+
+
+def generate_stat_card(display_name: str, image_path: str | None, stats: dict) -> BytesIO:
+    width, height = 900, 520
+    card = Image.new("RGB", (width, height), color=(18, 18, 22))
+
+    if image_path and Path(image_path).exists():
+        emblem = Image.open(image_path).convert("RGBA")
+        emblem.thumbnail((600, 600))
+        faded = emblem.copy()
+        alpha = faded.split()[3].point(lambda p: int(p * 0.18))
+        faded.putalpha(alpha)
+        card.paste(faded, (-80, -80), faded)
+
+    draw = ImageDraw.Draw(card)
+    try:
+        title_font = ImageFont.load_default(size=44)
+        header_font = ImageFont.load_default(size=26)
+        body_font = ImageFont.load_default(size=24)
+    except TypeError:
+        title_font = header_font = body_font = ImageFont.load_default()
+
+    draw.text((40, 30), display_name, font=title_font, fill=(255, 255, 255))
+
+    net = stats["net_units"]
+    net_color = (86, 214, 122) if net > 0 else (224, 90, 90) if net < 0 else (220, 220, 220)
+    draw.text((40, 100), f"Net: {net:+g} units", font=header_font, fill=net_color)
+    draw.text(
+        (40, 140),
+        f"Record: {stats['win_count']}-{stats['loss_count']} ({stats['win_rate']:.0f}% win rate)",
+        font=body_font,
+        fill=(220, 220, 220),
+    )
+    draw.text(
+        (40, 175),
+        f"Wins: +{stats['win_units']:g}u   Losses: -{stats['loss_units']:g}u",
+        font=body_font,
+        fill=(220, 220, 220),
+    )
+
+    rank_text = f"Rank #{stats['rank']} of {stats['pool_size']}" if stats["rank"] else "Not yet ranked"
+    draw.text((40, 220), rank_text, font=body_font, fill=(220, 220, 220))
+
+    draw.text((40, 280), "Hottest Months", font=header_font, fill=(255, 255, 255))
+    if stats["top_months"]:
+        for i, (month, month_net) in enumerate(stats["top_months"]):
+            draw.text((40, 320 + i * 35), f"{month}: {month_net:+g} units", font=body_font, fill=(220, 220, 220))
+    else:
+        draw.text((40, 320), "No settled results yet", font=body_font, fill=(220, 220, 220))
+
+    buffer = BytesIO()
+    card.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
+
+
+class PlaymakerSelect(discord.ui.Select):
+    def __init__(self, options: list[discord.SelectOption]):
+        super().__init__(placeholder="Choose a playmaker...", options=options, min_values=1, max_values=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        user_id = self.values[0]
+        await interaction.response.defer(ephemeral=True)
+        playmaker = supabase.table("playmakers").select("display_name,image_path").eq("user_id", user_id).execute()
+        if not playmaker.data:
+            await interaction.followup.send("Playmaker not found.", ephemeral=True)
+            return
+        display_name = playmaker.data[0].get("display_name") or "Unknown"
+        image_path = playmaker.data[0].get("image_path")
+        stats_data = await compute_playmaker_stats(user_id, interaction.guild)
+        card_bytes = generate_stat_card(display_name, image_path, stats_data)
+        await interaction.followup.send(file=discord.File(card_bytes, filename="stats.png"), ephemeral=True)
+
+
+class PlaymakerStatsView(discord.ui.View):
+    def __init__(self, options: list[discord.SelectOption]):
+        super().__init__(timeout=60)
+        self.add_item(PlaymakerSelect(options))
+
+
+@command_tree.command(name="stats", description="View a playmaker's stat breakdown")
+async def stats(interaction: discord.Interaction):
+    if supabase is None:
+        await interaction.response.send_message("Database is not configured.", ephemeral=True)
+        return
+    playmakers = fetch_all_rows("playmakers", "user_id,display_name")
+    if not playmakers:
+        await interaction.response.send_message("No playmakers have been added yet.", ephemeral=True)
+        return
+
+    options = [
+        discord.SelectOption(label=(row.get("display_name") or str(row.get("user_id")))[:100], value=str(row.get("user_id")))
+        for row in playmakers[:25]
+    ]
+    await interaction.response.send_message(
+        "Select a playmaker to view stats:",
+        view=PlaymakerStatsView(options),
         ephemeral=True,
     )
 
