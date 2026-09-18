@@ -913,6 +913,13 @@ async def on_ready():
     global commands_synced
 
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    logger.info(
+        "Tracker configuration: supabase=%s monitored_channel=%s tracked_roles=%s message_content_intent=%s",
+        supabase is not None,
+        MONITORED_CHANNEL_ID,
+        sorted(TRACKED_ROLE_IDS),
+        bot.intents.message_content,
+    )
     guild = bot.get_guild(GUILD_ID) if GUILD_ID else None
     if guild and TRACKED_ROLE_IDS:
         members_by_id = {}
@@ -955,8 +962,8 @@ async def on_message(message: discord.Message):
         return
 
     config = load_config()
-    tracked = set(config.get("tracked_user_ids", []))
-    if tracked and message.author.id not in tracked:
+    tracked = {str(user_id) for user_id in config.get("tracked_user_ids", [])}
+    if tracked and str(message.author.id) not in tracked:
         return
 
     values = extract_values(
@@ -966,9 +973,15 @@ async def on_message(message: discord.Message):
         pattern=config.get("number_pattern", r"(?i)(?<!\d)([+-]?(?:\d+(?:\.\d+)?))\s*U\b"),
     )
     if not values:
+        logger.info("Ignored message %s: no matching tracked value", message.id)
         return
 
-    insert_unit_entry(message, values[0], config)
+    try:
+        insert_unit_entry(message, values[0], config)
+    except Exception:
+        logger.exception("Failed to record message %s from user %s", message.id, message.author.id)
+        return
+    await update_daily_breakdown()
 
 
 @bot.event
@@ -1027,6 +1040,7 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
             return
 
     insert_unit_result(message, values[0], result, config)
+    await update_daily_breakdown()
 
 
 @bot.event
@@ -1069,6 +1083,7 @@ async def on_raw_reaction_remove(payload: discord.RawReactionActionEvent):
         existing = supabase.table("unit_results").select("id").eq("message_id", str(payload.message_id)).eq("user_id", str(payload.user_id)).eq("result", result).execute()
         if existing.data:
             supabase.table("unit_results").delete().eq("message_id", str(payload.message_id)).eq("user_id", str(payload.user_id)).eq("result", result).execute()
+            await update_daily_breakdown()
 
 
 if __name__ == "__main__":
