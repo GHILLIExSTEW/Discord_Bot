@@ -1,5 +1,6 @@
 import os
 import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 from io import BytesIO
@@ -34,6 +35,7 @@ TRACKED_ROLE_IDS = {
 }
 PLAYMAKER_ROLE_ID = int(os.getenv("PLAYMAKER_ROLE_ID", "0")) if os.getenv("PLAYMAKER_ROLE_ID") else None
 PLAYMAKER_MEDIA_DIR = Path("media/playmakers")
+CACHE_STATE_PATH = Path("tracker_cache_state.json")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -67,6 +69,32 @@ def fetch_all_rows(table: str, columns: str) -> list[dict]:
         if len(batch) < 1000:
             return rows
         offset += 1000
+
+
+def load_cache_cutoff() -> datetime | None:
+    if CACHE_STATE_PATH.exists():
+        try:
+            state = json.loads(CACHE_STATE_PATH.read_text(encoding="utf-8"))
+            return datetime.fromisoformat(state["cached_at"].replace("Z", "+00:00"))
+        except (KeyError, TypeError, ValueError, OSError, json.JSONDecodeError):
+            logger.warning("Ignoring invalid cache state file: %s", CACHE_STATE_PATH)
+
+    archived_rows = fetch_all_rows("unit_entries_archive", "created_at")
+    archived_rows += fetch_all_rows("unit_results_archive", "created_at")
+    timestamps = []
+    for row in archived_rows:
+        try:
+            timestamps.append(datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return max(timestamps, default=None)
+
+
+def save_cache_cutoff() -> None:
+    CACHE_STATE_PATH.write_text(
+        json.dumps({"cached_at": datetime.now(timezone.utc).isoformat()}),
+        encoding="utf-8",
+    )
 
 
 def now_iso_for_config(config: dict) -> str:
@@ -235,9 +263,12 @@ async def scan_monitored_channel():
         return
 
     config = load_config()
+    cache_cutoff = load_cache_cutoff()
     async for message in channel.history(limit=1000):
         if message.author.bot:
             continue
+        if cache_cutoff and message.created_at <= cache_cutoff:
+            break
         
         # Extract U values
         values = extract_values(
@@ -590,6 +621,7 @@ async def cache_tracker(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     try:
         summary = archive_tracking_data()
+        save_cache_cutoff()
         await update_daily_breakdown()
     except Exception:
         logger.exception("cache_tracker failed")
