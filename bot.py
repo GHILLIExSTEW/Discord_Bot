@@ -248,6 +248,18 @@ async def scan_monitored_channel():
         )
         if not values:
             continue
+
+        config_tracked_users = {str(user_id) for user_id in config.get("tracked_user_ids", [])}
+        if config_tracked_users and str(message.author.id) not in config_tracked_users:
+            continue
+        if not member_has_tracked_role(message.author):
+            continue
+
+        try:
+            insert_unit_entry(message, values[0], config)
+        except Exception:
+            logger.exception("Rescan failed to record entry for message %s", message.id)
+            continue
         
         # Check reactions on this message
         for reaction in message.reactions:
@@ -271,18 +283,26 @@ async def scan_monitored_channel():
                 if not member_has_tracked_role(member):
                     continue
                 
-                opposite = "loss" if result == "win" else "win"
-                supabase.table("unit_results").delete().eq("message_id", str(message.id)).eq("user_id", str(user.id)).eq("result", opposite).execute()
-                existing = supabase.table("unit_results").select("id").eq("message_id", str(message.id)).eq("user_id", str(user.id)).eq("result", result).execute()
-                if not existing.data:
-                    payload = {
-                        "user_id": str(user.id),
-                        "total_units": float(values[0]),
-                        "message_id": str(message.id),
-                        "result": result,
-                        "created_at": message_created_at,
-                    }
-                    supabase.table("unit_results").insert(payload).execute()
+                try:
+                    opposite = "loss" if result == "win" else "win"
+                    supabase.table("unit_results").delete().eq("message_id", str(message.id)).eq("user_id", str(user.id)).eq("result", opposite).execute()
+                    existing = supabase.table("unit_results").select("id").eq("message_id", str(message.id)).eq("user_id", str(user.id)).eq("result", result).execute()
+                    if not existing.data:
+                        payload = {
+                            "user_id": str(user.id),
+                            "total_units": float(values[0]),
+                            "message_id": str(message.id),
+                            "result": result,
+                            "created_at": message_created_at,
+                        }
+                        supabase.table("unit_results").insert(payload).execute()
+                except Exception:
+                    logger.exception(
+                        "Rescan failed to record result for message %s, user %s, result %s",
+                        message.id,
+                        user.id,
+                        result,
+                    )
 
 
 @tasks.loop(hours=4)
@@ -598,8 +618,16 @@ async def rescan_history(interaction: discord.Interaction):
         await interaction.response.send_message("You need Manage Server permission to use this command.", ephemeral=True)
         return
     await interaction.response.defer(ephemeral=True)
-    await scan_monitored_channel()
-    await update_daily_breakdown()
+    try:
+        await scan_monitored_channel()
+        await update_daily_breakdown()
+    except Exception as error:
+        logger.exception("rescan_history failed: %r", error)
+        await interaction.followup.send(
+            "History rescan failed. Check the bot log for the full database error.",
+            ephemeral=True,
+        )
+        return
     await interaction.followup.send("History rescanned and tracker refreshed.", ephemeral=True)
 
 
