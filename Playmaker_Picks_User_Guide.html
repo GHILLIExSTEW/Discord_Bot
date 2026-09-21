@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Playmaker Picks User Guide</title>
+  <style>
+    :root { --ink:#263238; --muted:#52606d; --accent:#0b7285; --line:#d9e2ec; --soft:#f5f8fa; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#eef3f6; color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    main { max-width:850px; margin:32px auto; padding:42px 52px; background:white; box-shadow:0 8px 30px #102a4320; }
+    h1 { margin:0; color:#243b53; text-align:center; font-size:2.2rem; }
+    header p { margin:4px 0 28px; text-align:center; color:var(--muted); }
+    section { border-top:1px solid var(--line); padding:18px 0 4px; }
+    h2 { margin:0 0 6px; color:var(--accent); font-size:1.2rem; }
+    h2 span { margin-right:8px; }
+    code { padding:2px 5px; border-radius:4px; background:#edf2f7; color:#364152; }
+    .callout { padding:14px 16px; margin-top:10px; border-left:4px solid var(--accent); background:var(--soft); }
+    footer { margin-top:28px; color:var(--muted); font-size:.85rem; }
+    @media (max-width:700px) { main { margin:0; padding:28px 22px; } h1 { font-size:1.8rem; } }
+    @media print { body { background:white; } main { margin:0; padding:20px; box-shadow:none; max-width:none; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Playmaker Picks</h1>
+    <p>Official play recording and results guide</p>
+  </header>
+
+  <section><h2><span>📷</span>Automatic image flow</h2>
+    <p><b>1.</b> Upload a betting-slip image in the configured image channel. <b>2.</b> The bot reads selections, decimal/American odds, team, and units. <b>3.</b> The bot posts <b>User Reviewing Bet</b> with a <b>Review image</b> button. <b>4.</b> Review and confirm. <b>5.</b> The bot records the play against the original image message and removes the review message. It does not repost the bet.</p>
+  </section>
+
+  <section><h2><span>✍️</span>Manual play entry</h2>
+    <p>Use <code>/play</code> when there is no image. Enter units, number of legs, Leg 1 selection, Leg 1 odds, and the optional team. Additional legs are entered one at a time. Each leg and its odds are stored, then combined when the final leg is submitted.</p>
+  </section>
+
+  <section><h2><span>🧪</span>Testing without recording</h2>
+    <p>Configure <code>TEST_CHANNEL_ID</code>, then use the protected command <code>/testing enabled:true</code>. Upload an image in the test channel. The bot parses the image without writing to the database, posting a bet, or requiring confirmation. Use <b>Enter units</b> if needed, then <b>Complete test</b>. Disable testing with <code>/testing enabled:false</code>.</p>
+    <div class="callout">Only configured operators or server managers can change the runtime testing toggle. A restart restores the default state.</div>
+  </section>
+
+  <section><h2><span>✏️</span>Editing a recorded bet</h2>
+    <p>The tracking channel receives a <b>Recorded Bet</b> embed with an <b>Edit bet</b> button. Only the original user can edit it. The edit form loads each leg from the database, recalculates combined odds, and updates the stored play.</p>
+  </section>
+
+  <section><h2><span>✅</span>Results and reactions</h2>
+    <p>The original user can react to the original bet message:</p>
+    <p><b>✅ Win</b> &nbsp; <b>❌ Loss</b> &nbsp; <b>🅿️ Void</b> &nbsp; <b>🌓 Partial</b></p>
+    <p>Win, loss, and void settle immediately. Partial sends a private follow-up for the remaining details.</p>
+  </section>
+
+  <section><h2><span>📊</span>Tracker updates</h2>
+    <p>Use <code>/update_tracker</code> from any channel. It reads the original unit tracker tables, updates the existing Unit Summary message in <code>RESULT_CHANNEL_ID</code>, and sends only the separate Top Playmakers embed to <code>TEAM_STATS_CHANNEL_ID</code>.</p>
+  </section>
+
+  <section><h2><span>🔧</span>If something does not appear</h2>
+    <p>Check that the bot is online, the user has the required role, the image channel is configured, and the bot can read messages, send messages, manage messages, and send direct messages. After deployment, pull the latest code and restart the systemd service.</p>
+  </section>
+
+  <footer>Key settings: IMAGE_INPUT_CHANNEL_ID · TEST_CHANNEL_ID · TRACKING_CHANNEL_ID · RESULT_CHANNEL_ID · TEAM_STATS_CHANNEL_ID</footer>
+</main>
+</body>
+</html>
