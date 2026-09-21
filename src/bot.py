@@ -5,7 +5,7 @@ import uuid
 import discord
 from discord.ext import commands
 
-from src.config import APPLICATION_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, TEAM_STATS_CHANNEL_ID
+from src.config import APPLICATION_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING
 from src.services.official_play_service import OfficialPlayService
 from src.services.team_ranking_service import TeamRankingService
 from src.services.team_summary_service import TeamSummaryService
@@ -77,6 +77,24 @@ async def on_ready():
 async def on_message(message: discord.Message):
     if message.author.bot or not message.guild:
         return
+
+    is_test_channel = TESTING and TEST_CHANNEL_ID and message.channel.id == TEST_CHANNEL_ID
+    if is_test_channel:
+        image = next((attachment for attachment in message.attachments if (attachment.content_type or "").startswith("image/")), None)
+        if image is None:
+            return
+        try:
+            parsed = await asyncio.to_thread(image_play_service.extract_play, image.url)
+            await message.channel.send(
+                f"{message.author.mention}, test image parsed. Nothing will be recorded.",
+                embed=build_image_test_embed(parsed),
+                view=TestFlowView(parsed),
+            )
+        except Exception as exc:
+            logger.exception("testing_image_extract_failed message=%s", message.id)
+            await message.channel.send(f"{message.author.mention}, test image failed: {exc}", delete_after=30)
+        return
+
     if IMAGE_INPUT_CHANNEL_ID and message.channel.id != IMAGE_INPUT_CHANNEL_ID:
         await bot.process_commands(message)
         return
@@ -373,7 +391,35 @@ class TestUnitsModal(discord.ui.Modal, title="Enter Units for Image Test"):
             await interaction.response.send_message("Units must be a number greater than zero.", ephemeral=True)
             return
         self.parsed["units"] = units
-        await interaction.response.edit_message(embed=build_image_test_embed(self.parsed), view=None)
+        await interaction.response.edit_message(embed=build_image_test_embed(self.parsed), view=TestFlowView(self.parsed))
+
+
+class TestFlowView(discord.ui.View):
+    def __init__(self, parsed: dict):
+        super().__init__(timeout=900)
+        self.parsed = parsed
+
+    @discord.ui.button(label="Enter units", style=discord.ButtonStyle.primary)
+    async def enter_units(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if self.parsed.get("units") is not None:
+            await interaction.response.send_message("Units are already available.", ephemeral=True)
+            return
+        await interaction.response.send_modal(TestUnitsModal(self.parsed))
+
+    @discord.ui.button(label="Complete test", style=discord.ButtonStyle.success)
+    async def complete_test(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if self.parsed.get("units") is None:
+            await interaction.response.send_message("Enter units before completing the test.", ephemeral=True)
+            return
+        await interaction.response.edit_message(
+            content="Test complete. Nothing was recorded.",
+            embed=None,
+            view=None,
+        )
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+    async def cancel_test(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await interaction.response.edit_message(content="Test cancelled.", embed=None, view=None)
 
 
 class TestImageView(discord.ui.View):
