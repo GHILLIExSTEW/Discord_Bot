@@ -139,13 +139,17 @@ async def on_message(message: discord.Message):
 
     try:
         parsed = await asyncio.to_thread(image_play_service.extract_play, image.url)
-        await message.channel.send(
-            f"{message.author.mention}, image received. Click **Review image** to continue privately.",
+        user = message.author
+        await user.send(
+            "Your betting image was received. Click **Review image** to continue privately.",
             view=AutoImageView(message.author.id, parsed, message.id),
         )
     except Exception as exc:
         logger.exception("automatic_image_extract_failed message=%s", message.id)
-        await message.channel.send(f"{message.author.mention}, I could not read that image: {exc}", delete_after=30)
+        try:
+            await message.author.send(f"I could not read that betting image: {exc}")
+        except discord.Forbidden:
+            logger.warning("could_not_dm_image_error user=%s", message.author.id)
     await bot.process_commands(message)
 
 
