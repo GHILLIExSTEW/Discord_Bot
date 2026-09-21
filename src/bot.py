@@ -13,6 +13,7 @@ from src.services.team_management_service import TeamManagementService
 from src.services.team_ranking_service import TeamRankingService
 from src.services.team_summary_service import TeamSummaryService
 from src.services.play_service import PlayService
+from src.services.image_play_service import image_play_service
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("official_play_bot")
@@ -39,6 +40,35 @@ team_ranking_service = TeamRankingService()
 team_summary_service = TeamSummaryService()
 team_management_service = TeamManagementService()
 play_service = PlayService()
+
+
+def build_play_embed(payload: dict) -> discord.Embed:
+    embed = discord.Embed(title="Official Play", description=payload["summary"], color=discord.Color.blurple())
+    embed.add_field(name="Units", value=f"{payload['units']}u", inline=True)
+    embed.add_field(name="Legs", value=str(payload["legs"]), inline=True)
+    embed.add_field(name="Odds", value=str(payload["odds"]), inline=True)
+    embed.add_field(name="To win", value=f"{payload['to_win']}u", inline=True)
+    if payload.get("team_name"):
+        embed.add_field(name="Team", value=payload["team_name"], inline=False)
+    if payload.get("play_text"):
+        embed.add_field(name="Notes", value=payload["play_text"][:1024], inline=False)
+    return embed
+
+
+async def publish_play_webhook(interaction: discord.Interaction, payload: dict) -> discord.Message:
+    channel = interaction.channel
+    if not hasattr(channel, "create_webhook"):
+        raise RuntimeError("The play channel does not support webhook posts.")
+    webhook = await channel.create_webhook(name="Official Play Publisher")
+    try:
+        return await webhook.send(
+            embed=build_play_embed(payload),
+            username=interaction.user.display_name,
+            avatar_url=interaction.user.display_avatar.url,
+            wait=True,
+        )
+    finally:
+        await webhook.delete(reason="Temporary user-attributed official play webhook")
 
 
 @bot.event
@@ -81,32 +111,12 @@ async def record_modal_play(
         await interaction.followup.send(payload["error"], ephemeral=True)
         return
 
-    embed = discord.Embed(title="Official Play", description=payload["summary"], color=discord.Color.blurple())
-    embed.add_field(name="Units", value=f"{payload['units']}u", inline=True)
-    embed.add_field(name="Legs", value=str(payload["legs"]), inline=True)
-    embed.add_field(name="Odds", value=str(payload["odds"]), inline=True)
-    embed.add_field(name="To win", value=f"{payload['to_win']}u", inline=True)
-    if payload.get("team_name"):
-        embed.add_field(name="Team", value=payload["team_name"], inline=False)
-    if payload.get("play_text"):
-        embed.add_field(name="Notes", value=payload["play_text"][:1024], inline=False)
-
     logger.info("play_webhook_start interaction=%s", interaction.id)
-    channel = interaction.channel
-    if not hasattr(channel, "create_webhook"):
-        await interaction.followup.send("The play channel does not support webhook posts.", ephemeral=True)
-        return
-
-    webhook = await channel.create_webhook(name="Official Play Publisher")
     try:
-        message = await webhook.send(
-            embed=embed,
-            username=interaction.user.display_name,
-            avatar_url=interaction.user.display_avatar.url,
-            wait=True,
-        )
-    finally:
-        await webhook.delete(reason="Temporary user-attributed official play webhook")
+        message = await publish_play_webhook(interaction, payload)
+    except Exception as exc:
+        await interaction.followup.send(f"Could not publish the play: {exc}", ephemeral=True)
+        return
 
     logger.info("play_webhook_complete interaction=%s message_id=%s", interaction.id, message.id)
     await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
@@ -285,6 +295,81 @@ class PlayModal(discord.ui.Modal, title="Record Official Play"):
             draft_legs,
         )
         await asyncio.to_thread(official_play_service.clear_draft_legs, draft_id, str(interaction.user.id))
+
+
+class ConfirmImageView(discord.ui.View):
+    def __init__(self, parsed: dict):
+        super().__init__(timeout=900)
+        self.parsed = parsed
+
+    @discord.ui.button(label="Confirm and record", style=discord.ButtonStyle.success)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await interaction.response.defer(ephemeral=True)
+        legs = self.parsed["legs"]
+        odds_values = [int(leg["odds"]) for leg in legs]
+        try:
+            payload = await asyncio.to_thread(
+                official_play_service.create_play_record,
+                discord_user_id=str(interaction.user.id),
+                username=interaction.user.display_name,
+                units=float(self.parsed["units"]),
+                legs=len(legs),
+                odds=play_service.combine_american_odds(odds_values),
+                team_name=self.parsed.get("team_name") or "",
+                play_text="\n".join(f"Leg {index}: {leg['selection']} ({int(leg['odds']):+d})" for index, leg in enumerate(legs, start=1)),
+                leg_records=legs,
+            )
+            if payload.get("error"):
+                await interaction.followup.send(payload["error"], ephemeral=True)
+                return
+            message = await publish_play_webhook(interaction, payload)
+            await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
+            await interaction.followup.send(f"Play {payload['play_id']} recorded.", ephemeral=True)
+            self.stop()
+        except Exception as exc:
+            logger.exception("image_play_confirm_failed interaction=%s", interaction.id)
+            await interaction.followup.send(f"Could not record the play: {exc}", ephemeral=True)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await interaction.response.edit_message(content="Image import cancelled.", embed=None, view=None)
+        self.stop()
+
+
+@bot.tree.command(name="importimage", description="Read a betting slip image and prepare an official play")
+@discord.app_commands.describe(image="Betting slip or play screenshot")
+async def import_image_command(interaction: discord.Interaction, image: discord.Attachment):
+    if not interaction.guild:
+        await interaction.response.send_message("This command can only be used in a guild.", ephemeral=True)
+        return
+    if OFFICIAL_ROLE_IDS and not any(role.id in OFFICIAL_ROLE_IDS for role in interaction.user.roles):
+        await interaction.response.send_message("You do not have permission to import plays.", ephemeral=True)
+        return
+    if OFFICIAL_CHANNEL_ID and interaction.channel_id != OFFICIAL_CHANNEL_ID:
+        await interaction.response.send_message(f"Use this command in the official channel: <#{OFFICIAL_CHANNEL_ID}>", ephemeral=True)
+        return
+    if not image.content_type or not image.content_type.startswith("image/"):
+        await interaction.response.send_message("Attach an image file.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True)
+    try:
+        parsed = await asyncio.to_thread(image_play_service.extract_play, image.url)
+    except Exception as exc:
+        logger.exception("image_play_extract_failed interaction=%s", interaction.id)
+        await interaction.followup.send(f"Could not read that image: {exc}", ephemeral=True)
+        return
+
+    legs = parsed["legs"]
+    odds = play_service.combine_american_odds([int(leg["odds"]) for leg in legs])
+    embed = discord.Embed(title="Image play detected", color=discord.Color.orange())
+    embed.add_field(name="Units", value=str(parsed["units"]), inline=True)
+    embed.add_field(name="Legs", value=str(len(legs)), inline=True)
+    embed.add_field(name="Combined odds", value=f"{odds:+d}", inline=True)
+    embed.description = "\n".join(f"{index}. {leg['selection']} ({int(leg['odds']):+d})" for index, leg in enumerate(legs, start=1))
+    if parsed.get("team_name"):
+        embed.set_footer(text=f"Team: {parsed['team_name']}")
+    await interaction.followup.send(embed=embed, content="Review the detected play before recording it:", view=ConfirmImageView(parsed), ephemeral=True)
 
 
 @bot.tree.command(name="play", description="Open the official play entry form")
