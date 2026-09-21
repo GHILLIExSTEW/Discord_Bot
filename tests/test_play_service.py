@@ -24,3 +24,8 @@ def test_validate_play_accepts_valid_input():
     service = PlayService()
     ok = service.validate_play(units=2.5, legs=2, odds=164)
     assert ok is None
+
+
+def test_combine_american_odds_for_multiple_legs():
+    service = PlayService()
+    assert service.combine_american_odds([-110, -110]) == 264

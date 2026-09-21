@@ -19,6 +19,20 @@ class PlayService:
         return round(profit, 2)
 
     @staticmethod
+    def combine_american_odds(odds_values: list[int]) -> int:
+        if not odds_values or any(int(odds) == 0 for odds in odds_values):
+            raise ValueError("Each leg must have non-zero odds.")
+
+        decimal_total = 1.0
+        for odds in odds_values:
+            odds_int = int(odds)
+            decimal_total *= 1 + (odds_int / 100 if odds_int > 0 else 100 / abs(odds_int))
+
+        if decimal_total >= 2:
+            return round((decimal_total - 1) * 100)
+        return round(-100 / (decimal_total - 1))
+
+    @staticmethod
     def validate_play(units: Any, legs: Any, odds: Any) -> dict[str, str] | None:
         try:
             units_value = float(units)
