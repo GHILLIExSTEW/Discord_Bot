@@ -5,7 +5,7 @@ import uuid
 import discord
 from discord.ext import commands
 
-from src.config import APPLICATION_ID, DISCORD_TOKEN, GUILD_ID, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, TEAM_STATS_CHANNEL_ID
+from src.config import APPLICATION_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, TEAM_STATS_CHANNEL_ID
 from src.services.official_play_service import OfficialPlayService
 from src.services.team_ranking_service import TeamRankingService
 from src.services.team_summary_service import TeamSummaryService
@@ -71,6 +71,31 @@ async def publish_play_webhook(interaction: discord.Interaction, payload: dict) 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+
+
+@bot.event
+async def on_message(message: discord.Message):
+    if message.author.bot or not message.guild:
+        return
+    if IMAGE_INPUT_CHANNEL_ID and message.channel.id != IMAGE_INPUT_CHANNEL_ID:
+        await bot.process_commands(message)
+        return
+
+    image = next((attachment for attachment in message.attachments if (attachment.content_type or "").startswith("image/")), None)
+    if image is None:
+        await bot.process_commands(message)
+        return
+
+    try:
+        parsed = await asyncio.to_thread(image_play_service.extract_play, image.url)
+        await message.channel.send(
+            f"{message.author.mention}, image received. Click **Review image** to continue privately.",
+            view=AutoImageView(message.author.id, parsed),
+        )
+    except Exception as exc:
+        logger.exception("automatic_image_extract_failed message=%s", message.id)
+        await message.channel.send(f"{message.author.mention}, I could not read that image: {exc}", delete_after=30)
+    await bot.process_commands(message)
 
 
 async def record_modal_play(
@@ -363,6 +388,74 @@ class TestImageView(discord.ui.View):
         await interaction.response.send_modal(TestUnitsModal(self.parsed))
 
 
+def build_image_review_embed(parsed: dict) -> discord.Embed:
+    legs = parsed["legs"]
+    odds = play_service.combine_american_odds([int(leg["odds"]) for leg in legs])
+    embed = discord.Embed(title="Image play detected", color=discord.Color.orange())
+    embed.add_field(name="Units", value=str(parsed.get("units") or "Not visible"), inline=True)
+    embed.add_field(name="Legs", value=str(len(legs)), inline=True)
+    embed.add_field(name="Combined odds", value=f"{odds:+d}", inline=True)
+    embed.description = "\n".join(
+        f"{index}. {leg['selection']} ({int(leg['odds']):+d})"
+        for index, leg in enumerate(legs, start=1)
+    )[:4096]
+    if parsed.get("team_name"):
+        embed.set_footer(text=f"Team: {parsed['team_name']}")
+    return embed
+
+
+class AutoUnitsModal(discord.ui.Modal, title="Enter Units"):
+    units = discord.ui.TextInput(label="Units risked", placeholder="Example: 2", required=True, max_length=20)
+
+    def __init__(self, owner_id: int, parsed: dict):
+        super().__init__()
+        self.owner_id = owner_id
+        self.parsed = parsed
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("Only the original uploader can continue.", ephemeral=True)
+            return
+        try:
+            units = float(self.units.value)
+            if units <= 0:
+                raise ValueError
+        except ValueError:
+            await interaction.response.send_message("Units must be greater than zero.", ephemeral=True)
+            return
+        self.parsed["units"] = units
+        await interaction.response.send_message(
+            content="Review the detected play before recording it:",
+            embed=build_image_review_embed(self.parsed),
+            view=ConfirmImageView(self.parsed),
+            ephemeral=True,
+        )
+
+
+class AutoImageView(discord.ui.View):
+    def __init__(self, owner_id: int, parsed: dict):
+        super().__init__(timeout=900)
+        self.owner_id = owner_id
+        self.parsed = parsed
+
+    @discord.ui.button(label="Review image", style=discord.ButtonStyle.primary)
+    async def review_image(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("Only the original uploader can review this image.", ephemeral=True)
+            return
+        if self.parsed.get("units") is None:
+            await interaction.response.send_modal(AutoUnitsModal(self.owner_id, self.parsed))
+        else:
+            await interaction.response.send_message(
+                content="Review the detected play before recording it:",
+                embed=build_image_review_embed(self.parsed),
+                view=ConfirmImageView(self.parsed),
+                ephemeral=True,
+            )
+        button.disabled = True
+        await interaction.message.edit(view=self)
+
+
 def build_image_test_embed(parsed: dict) -> discord.Embed:
     legs = parsed["legs"]
     odds = play_service.combine_american_odds([int(leg["odds"]) for leg in legs])
@@ -384,8 +477,6 @@ def build_image_test_embed(parsed: dict) -> discord.Embed:
     return embed
 
 
-@bot.tree.command(name="importimage", description="Read a betting slip image and prepare an official play")
-@discord.app_commands.describe(image="Betting slip or play screenshot")
 async def import_image_command(interaction: discord.Interaction, image: discord.Attachment):
     if not interaction.guild:
         await interaction.response.send_message("This command can only be used in a guild.", ephemeral=True)
@@ -420,7 +511,6 @@ async def import_image_command(interaction: discord.Interaction, image: discord.
     await interaction.followup.send(embed=embed, content="Review the detected play before recording it:", view=ConfirmImageView(parsed), ephemeral=True)
 
 
-@bot.tree.command(name="play", description="Open the official play entry form")
 async def play_command(interaction: discord.Interaction):
     logger.info("play_command_received interaction=%s user=%s channel=%s", interaction.id, interaction.user.id, interaction.channel_id)
     if not interaction.guild:
