@@ -78,6 +78,10 @@ async def record_modal_play(
         return
 
     embed = discord.Embed(title="Official Play", description=payload["summary"], color=discord.Color.blurple())
+    embed.set_author(
+        name=interaction.user.display_name,
+        icon_url=interaction.user.display_avatar.url,
+    )
     embed.add_field(name="Units", value=f"{payload['units']}u", inline=True)
     embed.add_field(name="Legs", value=str(payload["legs"]), inline=True)
     embed.add_field(name="Odds", value=str(payload["odds"]), inline=True)
