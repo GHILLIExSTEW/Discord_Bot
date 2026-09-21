@@ -311,7 +311,8 @@ class RosterSyncService:
             try:
                 for sport_slug in ROSTER_SYNC_SPORTS:
                     sport_name = sport_slug.replace("-", " ").title()
-                    self.sync_sport(
+                    await asyncio.to_thread(
+                        self.sync_sport,
                         sport_name,
                         sport_slug,
                         ROSTER_SYNC_SPORT_FILTERS.get(sport_slug, []),
