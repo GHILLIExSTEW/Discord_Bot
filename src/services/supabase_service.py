@@ -1,5 +1,6 @@
 from typing import Any
 
+import httpx
 from supabase import Client, create_client
 
 from src.config import SUPABASE_URL, SUPABASE_KEY
@@ -16,37 +17,53 @@ class SupabaseService:
             raise RuntimeError("SUPABASE_URL and SUPABASE_KEY must be configured.")
         return self.client
 
+    def _execute(self, operation):
+        for attempt in range(3):
+            try:
+                return operation()
+            except (httpx.RemoteProtocolError, httpx.TransportError):
+                if attempt == 2:
+                    raise
+                self.client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
     def select(self, table: str, columns: str = "*", filters: dict[str, Any] | None = None):
-        client = self._ensure_client()
-        query = client.table(table).select(columns)
-        if filters:
-            for key, value in filters.items():
-                query = query.eq(key, value)
-        return query.execute()
+        def operation():
+            query = self._ensure_client().table(table).select(columns)
+            if filters:
+                for key, value in filters.items():
+                    query = query.eq(key, value)
+            return query.execute()
+
+        return self._execute(operation)
 
     def insert(self, table: str, payload: dict[str, Any] | list[dict[str, Any]]):
-        return self._ensure_client().table(table).insert(payload).execute()
+        return self._execute(lambda: self._ensure_client().table(table).insert(payload).execute())
 
     def upsert(self, table: str, payload: dict[str, Any] | list[dict[str, Any]], conflict_columns: list[str] | None = None):
-        client = self._ensure_client()
         if conflict_columns:
-            return client.table(table).upsert(
+            return self._execute(lambda: self._ensure_client().table(table).upsert(
                 payload,
                 on_conflict=",".join(conflict_columns),
-            ).execute()
-        return client.table(table).upsert(payload).execute()
+            ).execute())
+        return self._execute(lambda: self._ensure_client().table(table).upsert(payload).execute())
 
     def update(self, table: str, payload: dict[str, Any], match: dict[str, Any]):
-        query = self._ensure_client().table(table).update(payload)
-        for key, value in match.items():
-            query = query.eq(key, value)
-        return query.execute()
+        def operation():
+            query = self._ensure_client().table(table).update(payload)
+            for key, value in match.items():
+                query = query.eq(key, value)
+            return query.execute()
+
+        return self._execute(operation)
 
     def delete(self, table: str, match: dict[str, Any]):
-        query = self._ensure_client().table(table).delete()
-        for key, value in match.items():
-            query = query.eq(key, value)
-        return query.execute()
+        def operation():
+            query = self._ensure_client().table(table).delete()
+            for key, value in match.items():
+                query = query.eq(key, value)
+            return query.execute()
+
+        return self._execute(operation)
 
 
 supabase_service = SupabaseService()

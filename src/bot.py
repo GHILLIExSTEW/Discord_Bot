@@ -108,7 +108,7 @@ class LegModal(discord.ui.Modal):
         max_length=1000,
     )
 
-    def __init__(self, units: float, legs: int, odds: str, team_name: str, notes: str, leg_number: int, collected: list[str]):
+    def __init__(self, units: float, legs: int, odds: str, team_name: str, notes: str, leg_number: int, collected: list[str], progress_message=None):
         super().__init__(title=f"Enter Leg {leg_number} of {legs}")
         self.units = units
         self.legs = legs
@@ -117,15 +117,13 @@ class LegModal(discord.ui.Modal):
         self.notes = notes
         self.leg_number = leg_number
         self.collected = collected
+        self.progress_message = progress_message
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         self.collected.append(f"Leg {self.leg_number}: {self.leg_details.value.strip()}")
         logger.info("leg_modal_submit interaction=%s leg=%s/%s", interaction.id, self.leg_number, self.legs)
         if self.leg_number < self.legs:
-            await interaction.response.send_message(
-                f"Leg {self.leg_number} saved. Continue with leg {self.leg_number + 1}.",
-                ephemeral=True,
-                view=LegEntryView(
+            next_view = LegEntryView(
                     self.units,
                     self.legs,
                     self.odds,
@@ -133,8 +131,20 @@ class LegModal(discord.ui.Modal):
                     self.notes,
                     self.leg_number + 1,
                     self.collected,
-                ),
-            )
+                )
+            await interaction.response.defer()
+            if self.progress_message is not None:
+                next_view.message = self.progress_message
+                await self.progress_message.edit(
+                    content=f"Leg {self.leg_number} saved. Continue with leg {self.leg_number + 1}.",
+                    view=next_view,
+                )
+            else:
+                await interaction.followup.send(
+                    f"Leg {self.leg_number} saved. Continue with leg {self.leg_number + 1}.",
+                    ephemeral=True,
+                    view=next_view,
+                )
             return
 
         combined = "\n".join(self.collected)
@@ -153,9 +163,11 @@ class LegEntryView(discord.ui.View):
         self.notes = notes
         self.leg_number = leg_number
         self.collected = collected
+        self.message = None
 
     @discord.ui.button(label="Enter next leg", style=discord.ButtonStyle.primary)
     async def enter_next_leg(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        self.message = interaction.message
         await interaction.response.send_modal(LegModal(
                 self.units,
                 self.legs,
@@ -164,6 +176,7 @@ class LegEntryView(discord.ui.View):
                 self.notes,
                 self.leg_number,
                 self.collected,
+                self.message,
             ))
 
 
