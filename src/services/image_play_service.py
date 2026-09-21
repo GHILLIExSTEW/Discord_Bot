@@ -8,9 +8,7 @@ import requests
 from src.config import (
     OPENAI_API_KEY,
     OPENAI_VISION_MODEL,
-    VISION_FALLBACK_API_KEY,
-    VISION_FALLBACK_MODEL,
-    VISION_FALLBACK_URL,
+    OPENAI_VISION_MODELS,
 )
 
 
@@ -27,8 +25,9 @@ class ImagePlayService:
         providers = []
         if OPENAI_API_KEY:
             providers.append(("openai", "https://api.openai.com/v1/chat/completions", OPENAI_API_KEY, OPENAI_VISION_MODEL))
-        if VISION_FALLBACK_URL and VISION_FALLBACK_API_KEY and VISION_FALLBACK_MODEL:
-            providers.append(("fallback", VISION_FALLBACK_URL, VISION_FALLBACK_API_KEY, VISION_FALLBACK_MODEL))
+        for model in OPENAI_VISION_MODELS:
+            if not any(entry[3] == model for entry in providers):
+                providers.append((f"openai:{model}", "https://api.openai.com/v1/chat/completions", OPENAI_API_KEY, model))
         if not providers:
             raise RuntimeError("No vision provider is configured.")
 

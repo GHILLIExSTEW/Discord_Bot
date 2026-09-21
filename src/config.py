@@ -40,6 +40,7 @@ SUPABASE_KEY = get_str("SUPABASE_KEY")
 API_SPORTS_KEY = get_str("API_SPORTS_KEY")
 OPENAI_API_KEY = get_str("OPENAI_API_KEY")
 OPENAI_VISION_MODEL = get_str("OPENAI_VISION_MODEL", "gpt-4o-mini")
+OPENAI_VISION_MODELS_RAW = get_str("OPENAI_VISION_MODELS", "")
 VISION_FALLBACK_URL = get_str("VISION_FALLBACK_URL")
 VISION_FALLBACK_API_KEY = get_str("VISION_FALLBACK_API_KEY")
 VISION_FALLBACK_MODEL = get_str("VISION_FALLBACK_MODEL")
@@ -68,6 +69,11 @@ ROSTER_SYNC_DAYS = get_int("ROSTER_SYNC_DAYS", 365)
 def parse_csv_values(name: str) -> list[str]:
     raw = os.getenv(name, "")
     return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+OPENAI_VISION_MODELS = [item.strip() for item in OPENAI_VISION_MODELS_RAW.split(",") if item.strip()]
+if not OPENAI_VISION_MODELS:
+    OPENAI_VISION_MODELS = [OPENAI_VISION_MODEL]
 
 
 ROSTER_SYNC_SPORTS = parse_csv_values("ROSTER_SYNC_SPORTS")
