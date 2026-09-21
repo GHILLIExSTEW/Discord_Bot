@@ -22,15 +22,23 @@ team_summary_service = TeamSummaryService()
 team_management_service = TeamManagementService()
 
 
-@bot.event
-async def on_ready():
-    print(f"Logged in as {bot.user}")
+async def setup_hook() -> None:
     if GUILD_ID:
         guild = discord.Object(id=GUILD_ID)
         bot.tree.copy_global_to(guild=guild)
-        await bot.tree.sync(guild=guild)
+        synced = await bot.tree.sync(guild=guild)
+        print(f"Synced guild commands: {', '.join(command.name for command in synced)}")
     else:
-        await bot.tree.sync()
+        synced = await bot.tree.sync()
+        print(f"Synced global commands: {', '.join(command.name for command in synced)}")
+
+
+bot.setup_hook = setup_hook
+
+
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user}")
     asyncio.create_task(RosterSyncService().run_annually())
 
 
