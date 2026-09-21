@@ -141,7 +141,7 @@ async def on_message(message: discord.Message):
         parsed = await asyncio.to_thread(image_play_service.extract_play, image.url)
         user = message.author
         await user.send(
-            "Your betting image was received. Click **Review image** to continue privately.",
+            "User Reviewing Bet",
             view=AutoImageView(message.author.id, parsed, message.id),
         )
     except Exception as exc:
@@ -409,6 +409,9 @@ class ConfirmImageView(discord.ui.View):
                 embed=None,
                 view=None,
             )
+            if interaction.message is not None:
+                await interaction.message.delete()
+            await interaction.followup.send(f"Play {payload['play_id']} recorded.")
             self.stop()
         except Exception as exc:
             logger.exception("image_play_confirm_failed interaction=%s", interaction.id)
@@ -498,11 +501,12 @@ def build_image_review_embed(parsed: dict) -> discord.Embed:
 class AutoUnitsModal(discord.ui.Modal, title="Enter Units"):
     units = discord.ui.TextInput(label="Units risked", placeholder="Example: 2", required=True, max_length=20)
 
-    def __init__(self, owner_id: int, parsed: dict, source_message_id: int):
+    def __init__(self, owner_id: int, parsed: dict, source_message_id: int, review_message: discord.Message):
         super().__init__()
         self.owner_id = owner_id
         self.parsed = parsed
         self.source_message_id = source_message_id
+        self.review_message = review_message
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         if interaction.user.id != self.owner_id:
@@ -516,11 +520,12 @@ class AutoUnitsModal(discord.ui.Modal, title="Enter Units"):
             await interaction.response.send_message("Units must be greater than zero.", ephemeral=True)
             return
         self.parsed["units"] = units
-        await interaction.response.send_message(
-            content="Review the detected play before recording it:",
+        await interaction.response.defer()
+        await interaction.followup.edit_message(
+            self.review_message.id,
+            content="User Reviewing Bet",
             embed=build_image_review_embed(self.parsed),
             view=ConfirmImageView(self.parsed, self.source_message_id),
-            ephemeral=True,
         )
 
 
@@ -537,16 +542,13 @@ class AutoImageView(discord.ui.View):
             await interaction.response.send_message("Only the original uploader can review this image.", ephemeral=True)
             return
         if self.parsed.get("units") is None:
-            await interaction.response.send_modal(AutoUnitsModal(self.owner_id, self.parsed, self.source_message_id))
+            await interaction.response.send_modal(AutoUnitsModal(self.owner_id, self.parsed, self.source_message_id, interaction.message))
         else:
-            await interaction.response.send_message(
-                content="Review the detected play before recording it:",
+            await interaction.response.edit_message(
+                content="User Reviewing Bet",
                 embed=build_image_review_embed(self.parsed),
                 view=ConfirmImageView(self.parsed, self.source_message_id),
-                ephemeral=True,
             )
-        button.disabled = True
-        await interaction.message.edit(view=self)
 
 
 def build_image_test_embed(parsed: dict) -> discord.Embed:
