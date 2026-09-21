@@ -5,41 +5,66 @@ from typing import Any
 
 import requests
 
-from src.config import OPENAI_API_KEY, OPENAI_VISION_MODEL
+from src.config import (
+    OPENAI_API_KEY,
+    OPENAI_VISION_MODEL,
+    VISION_FALLBACK_API_KEY,
+    VISION_FALLBACK_MODEL,
+    VISION_FALLBACK_URL,
+)
 
 
 class ImagePlayService:
-    def extract_play(self, image_url: str) -> dict[str, Any]:
-        if not OPENAI_API_KEY:
-            raise RuntimeError("OPENAI_API_KEY is not configured.")
+    PROMPT = (
+        "Read this betting slip. Return JSON only with keys: units (number), "
+        "team_name (string or null), and legs (array). Each legs item must have "
+        "selection (string) and odds (integer). Do not guess unreadable text; "
+        "explain uncertainty in the selection."
+    )
 
+    def extract_play(self, image_url: str) -> dict[str, Any]:
+        errors = []
+        providers = []
+        if OPENAI_API_KEY:
+            providers.append(("openai", "https://api.openai.com/v1/chat/completions", OPENAI_API_KEY, OPENAI_VISION_MODEL))
+        if VISION_FALLBACK_URL and VISION_FALLBACK_API_KEY and VISION_FALLBACK_MODEL:
+            providers.append(("fallback", VISION_FALLBACK_URL, VISION_FALLBACK_API_KEY, VISION_FALLBACK_MODEL))
+        if not providers:
+            raise RuntimeError("No vision provider is configured.")
+
+        for name, url, api_key, model in providers:
+            try:
+                return self._extract_with_provider(image_url, name, url, api_key, model)
+            except Exception as exc:
+                errors.append(f"{name}: {exc}")
+
+        raise RuntimeError("All vision providers failed or blocked the image. " + " | ".join(errors))
+
+    def _extract_with_provider(self, image_url: str, name: str, url: str, api_key: str, model: str) -> dict[str, Any]:
         response = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+            url,
+            headers={"Authorization": f"Bearer {api_key}"},
             json={
-                "model": OPENAI_VISION_MODEL,
+                "model": model,
                 "response_format": {"type": "json_object"},
-                "messages": [{
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": (
-                                "Read this betting slip. Return JSON only with keys: "
-                                "units (number), team_name (string or null), and legs (array). "
-                                "Each legs item must have selection (string) and odds (integer). "
-                                "Do not guess unreadable text; use an empty string and explain uncertainty "
-                                "in the selection."
-                            ),
-                        },
-                        {"type": "image_url", "image_url": {"url": image_url}},
-                    ],
-                }],
+                "messages": [{"role": "user", "content": [
+                    {"type": "text", "text": self.PROMPT},
+                    {"type": "image_url", "image_url": {"url": image_url}},
+                ]}],
             },
             timeout=60,
         )
+        if response.status_code in {400, 403, 408, 429} or response.status_code >= 500:
+            raise RuntimeError(f"provider response {response.status_code}")
         response.raise_for_status()
-        content = response.json()["choices"][0]["message"]["content"]
+        body = response.json()
+        choice = (body.get("choices") or [{}])[0]
+        finish_reason = choice.get("finish_reason")
+        if finish_reason in {"blocked", "content_filter", "safety"}:
+            raise RuntimeError(f"provider blocked image ({finish_reason})")
+        content = (choice.get("message") or {}).get("content")
+        if not content:
+            raise RuntimeError("provider returned no content")
         parsed = json.loads(content)
         self._validate(parsed)
         return parsed
