@@ -96,9 +96,24 @@ async def record_modal_play(
     if payload.get("play_text"):
         embed.add_field(name="Notes", value=payload["play_text"][:1024], inline=False)
 
-    logger.info("play_followup_start interaction=%s", interaction.id)
-    message = await interaction.followup.send(embed=embed, wait=True)
-    logger.info("play_followup_complete interaction=%s message_id=%s", interaction.id, message.id)
+    logger.info("play_webhook_start interaction=%s", interaction.id)
+    channel = interaction.channel
+    if not hasattr(channel, "create_webhook"):
+        await interaction.followup.send("The play channel does not support webhook posts.", ephemeral=True)
+        return
+
+    webhook = await channel.create_webhook(name="Official Play Publisher")
+    try:
+        message = await webhook.send(
+            embed=embed,
+            username=interaction.user.display_name,
+            avatar_url=interaction.user.display_avatar.url,
+            wait=True,
+        )
+    finally:
+        await webhook.delete(reason="Temporary user-attributed official play webhook")
+
+    logger.info("play_webhook_complete interaction=%s message_id=%s", interaction.id, message.id)
     await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
     logger.info("play_complete interaction=%s play_id=%s", interaction.id, payload["play_id"])
 
