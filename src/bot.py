@@ -390,10 +390,41 @@ async def play_command(interaction: discord.Interaction):
     await interaction.response.send_modal(PlayModal())
 
 
-@bot.tree.command(name="test", description="Run safe play-system diagnostics")
-async def test_command(interaction: discord.Interaction):
+@bot.tree.command(name="test", description="Test an image or run play-system diagnostics")
+@discord.app_commands.describe(image="Optional betting-slip image to parse without recording")
+async def test_command(interaction: discord.Interaction, image: discord.Attachment | None = None):
     if OFFICIAL_ROLE_IDS and not any(role.id in OFFICIAL_ROLE_IDS for role in interaction.user.roles):
         await interaction.response.send_message("Only officials can run diagnostics.", ephemeral=True)
+        return
+
+    if image is not None:
+        if not image.content_type or not image.content_type.startswith("image/"):
+            await interaction.response.send_message("Attach an image file.", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            parsed = await asyncio.to_thread(image_play_service.extract_play, image.url)
+            legs = parsed["legs"]
+            odds = play_service.combine_american_odds([int(leg["odds"]) for leg in legs])
+            embed = discord.Embed(
+                title="Image Test Result",
+                description="This image was parsed successfully. Nothing was recorded.",
+                color=discord.Color.blue(),
+            )
+            embed.add_field(name="Units", value=str(parsed["units"]), inline=True)
+            embed.add_field(name="Legs", value=str(len(legs)), inline=True)
+            embed.add_field(name="Combined odds", value=f"{odds:+d}", inline=True)
+            embed.add_field(
+                name="Selections",
+                value="\n".join(f"{index}. {leg['selection']} ({int(leg['odds']):+d})" for index, leg in enumerate(legs, start=1))[:1024],
+                inline=False,
+            )
+            if parsed.get("team_name"):
+                embed.set_footer(text=f"Team: {parsed['team_name']}")
+            await interaction.followup.send(embed=embed, ephemeral=True)
+        except Exception as exc:
+            logger.exception("test_image_failed interaction=%s", interaction.id)
+            await interaction.followup.send(f"Image test failed: {exc}", ephemeral=True)
         return
 
     checks = diagnostic_service.run_checks()
