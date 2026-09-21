@@ -62,18 +62,25 @@ async def play_command(
         await interaction.response.send_message(f"Use this command in the official channel: <#{OFFICIAL_CHANNEL_ID}>", ephemeral=True)
         return
 
-    payload = official_play_service.create_play_record(
-        discord_user_id=str(interaction.user.id),
-        username=interaction.user.display_name,
-        units=units,
-        legs=legs,
-        odds=odds,
-        team_name=team_name,
-        play_text=play_text or "",
-    )
+    await interaction.response.defer()
+
+    try:
+        payload = await asyncio.to_thread(
+            official_play_service.create_play_record,
+            discord_user_id=str(interaction.user.id),
+            username=interaction.user.display_name,
+            units=units,
+            legs=legs,
+            odds=odds,
+            team_name=team_name,
+            play_text=play_text or "",
+        )
+    except Exception as exc:
+        await interaction.followup.send(f"Could not record the play: {exc}", ephemeral=True)
+        return
 
     if payload.get("error"):
-        await interaction.response.send_message(payload["error"], ephemeral=True)
+        await interaction.followup.send(payload["error"], ephemeral=True)
         return
 
     embed = discord.Embed(
@@ -91,9 +98,8 @@ async def play_command(
     if payload.get("play_text"):
         embed.add_field(name="Notes", value=payload["play_text"][:1024], inline=False)
 
-    await interaction.response.send_message(embed=embed)
-    message = await interaction.original_response()
-    official_play_service.attach_message_id(payload["play_id"], message.id)
+    message = await interaction.followup.send(embed=embed, wait=True)
+    await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
 
 
 @bot.tree.command(name="settle", description="Settle an official play")
