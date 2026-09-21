@@ -952,6 +952,14 @@ async def update_tracker_command(interaction: discord.Interaction):
     try:
         await interaction.response.defer(ephemeral=True)
         entries, results, playmakers = await asyncio.to_thread(fetch_legacy_tracker_rows)
+        known_names = {str(row.get("user_id")) for row in playmakers}
+        if interaction.guild:
+            for user_id in {str(row.get("user_id")) for row in results} - known_names:
+                try:
+                    member = interaction.guild.get_member(int(user_id)) or await interaction.guild.fetch_member(int(user_id))
+                    playmakers.append({"user_id": user_id, "display_name": member.display_name})
+                except (ValueError, discord.HTTPException, discord.NotFound):
+                    logger.warning("tracker_member_name_unavailable user=%s", user_id)
         tracker_embed, top_lines = build_legacy_tracker_embed(entries, results, playmakers)
         if not RESULT_CHANNEL_ID:
             await interaction.followup.send("RESULT_CHANNEL_ID is not configured.", ephemeral=True)
