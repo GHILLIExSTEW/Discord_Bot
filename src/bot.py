@@ -40,16 +40,58 @@ async def on_ready():
     asyncio.create_task(RosterSyncService().run_annually())
 
 
-@bot.tree.command(name="play", description="Record an official play")
-@discord.app_commands.describe(units="Units risked", legs="Number of legs", odds="American odds like -110 or +164", team_name="Optional team label, including an untracked team", play_text="Optional notes, displayed only in the embed")
-async def play_command(
-    interaction: discord.Interaction,
-    units: float,
-    legs: int,
-    odds: str,
-    team_name: str | None = None,
-    play_text: str | None = None,
-):
+class PlayModal(discord.ui.Modal, title="Record Official Play"):
+    units = discord.ui.TextInput(label="Units risked", placeholder="Example: 2", required=True, max_length=20)
+    legs = discord.ui.TextInput(label="Number of legs", placeholder="Example: 3", required=True, max_length=10)
+    odds = discord.ui.TextInput(label="American odds", placeholder="Example: -110 or +150", required=True, max_length=20)
+    team_name = discord.ui.TextInput(label="Team (optional)", placeholder="Enter a team, including an untracked team", required=False, max_length=100)
+    play_text = discord.ui.TextInput(label="Notes (optional)", style=discord.TextStyle.paragraph, required=False, max_length=1000)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        try:
+            units = float(self.units.value)
+            legs = int(self.legs.value)
+        except ValueError:
+            await interaction.response.send_message("Units must be a number and legs must be a whole number.", ephemeral=True)
+            return
+
+        await interaction.response.defer()
+        try:
+            payload = await asyncio.to_thread(
+                official_play_service.create_play_record,
+                discord_user_id=str(interaction.user.id),
+                username=interaction.user.display_name,
+                units=units,
+                legs=legs,
+                odds=self.odds.value,
+                team_name=self.team_name.value,
+                play_text=self.play_text.value,
+            )
+        except Exception as exc:
+            await interaction.followup.send(f"Could not record the play: {exc}", ephemeral=True)
+            return
+
+        if payload.get("error"):
+            await interaction.followup.send(payload["error"], ephemeral=True)
+            return
+
+        embed = discord.Embed(title="Official Play", description=payload["summary"], color=discord.Color.blurple())
+        embed.add_field(name="Units", value=f"{payload['units']}u", inline=True)
+        embed.add_field(name="Legs", value=str(payload["legs"]), inline=True)
+        embed.add_field(name="Odds", value=str(payload["odds"]), inline=True)
+        embed.add_field(name="To win", value=f"{payload['to_win']}u", inline=True)
+        embed.add_field(name="Posted by", value=payload["user_name"], inline=False)
+        if payload.get("team_name"):
+            embed.add_field(name="Team", value=payload["team_name"], inline=False)
+        if payload.get("play_text"):
+            embed.add_field(name="Notes", value=payload["play_text"][:1024], inline=False)
+
+        message = await interaction.followup.send(embed=embed, wait=True)
+        await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
+
+
+@bot.tree.command(name="play", description="Open the official play entry form")
+async def play_command(interaction: discord.Interaction):
     if not interaction.guild:
         await interaction.response.send_message("This command can only be used in a guild.", ephemeral=True)
         return
@@ -62,44 +104,7 @@ async def play_command(
         await interaction.response.send_message(f"Use this command in the official channel: <#{OFFICIAL_CHANNEL_ID}>", ephemeral=True)
         return
 
-    await interaction.response.defer()
-
-    try:
-        payload = await asyncio.to_thread(
-            official_play_service.create_play_record,
-            discord_user_id=str(interaction.user.id),
-            username=interaction.user.display_name,
-            units=units,
-            legs=legs,
-            odds=odds,
-            team_name=team_name,
-            play_text=play_text or "",
-        )
-    except Exception as exc:
-        await interaction.followup.send(f"Could not record the play: {exc}", ephemeral=True)
-        return
-
-    if payload.get("error"):
-        await interaction.followup.send(payload["error"], ephemeral=True)
-        return
-
-    embed = discord.Embed(
-        title="Official Play",
-        description=payload["summary"],
-        color=discord.Color.blurple(),
-    )
-    embed.add_field(name="Units", value=f"{payload['units']}u", inline=True)
-    embed.add_field(name="Legs", value=str(payload["legs"]), inline=True)
-    embed.add_field(name="Odds", value=str(payload["odds"]), inline=True)
-    embed.add_field(name="To win", value=f"{payload['to_win']}u", inline=True)
-    embed.add_field(name="Posted by", value=payload["user_name"], inline=False)
-    if payload.get("team_name"):
-        embed.add_field(name="Team", value=payload["team_name"], inline=False)
-    if payload.get("play_text"):
-        embed.add_field(name="Notes", value=payload["play_text"][:1024], inline=False)
-
-    message = await interaction.followup.send(embed=embed, wait=True)
-    await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
+    await interaction.response.send_modal(PlayModal())
 
 
 @bot.tree.command(name="settle", description="Settle an official play")
