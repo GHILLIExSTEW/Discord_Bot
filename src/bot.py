@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -91,7 +92,9 @@ def fetch_legacy_tracker_rows() -> tuple[list[dict], list[dict], list[dict]]:
 
 
 def parse_tracker_time(value: str, timezone_name: str) -> datetime:
-    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    text = str(value).replace("Z", "+00:00")
+    text = re.sub(r"\.(\d{1,6})\d*(?=[+-]\d{2}:\d{2}$)", lambda match: "." + match.group(1).ljust(6, "0"), text)
+    parsed = datetime.fromisoformat(text)
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(ZoneInfo(timezone_name))
