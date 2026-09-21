@@ -70,16 +70,26 @@ class ImagePlayService:
 
     @staticmethod
     def _validate(data: dict[str, Any]) -> None:
-        if not isinstance(data.get("units"), (int, float)) or data["units"] <= 0:
+        try:
+            units = float(data.get("units"))
+        except (TypeError, ValueError):
+            units = 0
+        if units <= 0:
             raise ValueError("The image reader could not find valid units.")
+        data["units"] = units
         legs = data.get("legs")
         if not isinstance(legs, list) or not 1 <= len(legs) <= 10:
             raise ValueError("The image reader could not find 1-10 legs.")
         for leg in legs:
             if not isinstance(leg.get("selection"), str) or not leg["selection"].strip():
                 raise ValueError("At least one leg selection could not be read.")
-            if not isinstance(leg.get("odds"), int) or leg["odds"] == 0:
+            try:
+                odds = int(str(leg.get("odds")).replace("+", "").strip())
+            except (TypeError, ValueError):
+                odds = 0
+            if odds == 0:
                 raise ValueError("At least one leg's odds could not be read.")
+            leg["odds"] = odds
 
 
 image_play_service = ImagePlayService()

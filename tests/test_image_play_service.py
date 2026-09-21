@@ -17,3 +17,10 @@ def test_image_play_validation_rejects_missing_odds():
             "units": 2,
             "legs": [{"selection": "Moneyline", "odds": 0}],
         })
+
+
+def test_image_play_validation_normalizes_string_numbers():
+    data = {"units": "2", "legs": [{"selection": "Moneyline", "odds": "-110"}]}
+    ImagePlayService._validate(data)
+    assert data["units"] == 2.0
+    assert data["legs"][0]["odds"] == -110
