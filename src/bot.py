@@ -11,6 +11,7 @@ from src.services.team_ranking_service import TeamRankingService
 from src.services.team_summary_service import TeamSummaryService
 from src.services.play_service import PlayService
 from src.services.image_play_service import image_play_service
+from src.services.diagnostic_service import diagnostic_service
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("official_play_bot")
@@ -387,6 +388,25 @@ async def play_command(interaction: discord.Interaction):
 
     logger.info("play_modal_open_start interaction=%s", interaction.id)
     await interaction.response.send_modal(PlayModal())
+
+
+@bot.tree.command(name="test", description="Run safe play-system diagnostics")
+async def test_command(interaction: discord.Interaction):
+    if OFFICIAL_ROLE_IDS and not any(role.id in OFFICIAL_ROLE_IDS for role in interaction.user.roles):
+        await interaction.response.send_message("Only officials can run diagnostics.", ephemeral=True)
+        return
+
+    checks = diagnostic_service.run_checks()
+    passed = sum(check["passed"] for check in checks)
+    embed = discord.Embed(
+        title="Play System Diagnostics",
+        description=f"{passed}/{len(checks)} checks passed. No database records were changed.",
+        color=discord.Color.green() if passed == len(checks) else discord.Color.red(),
+    )
+    for check in checks:
+        marker = "PASS" if check["passed"] else "FAIL"
+        embed.add_field(name=f"{marker} • {check['name']}", value=check["detail"][:1024], inline=False)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
     logger.info("play_modal_open_complete interaction=%s", interaction.id)
 
 
