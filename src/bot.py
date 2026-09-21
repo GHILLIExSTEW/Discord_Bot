@@ -5,7 +5,7 @@ import uuid
 import discord
 from discord.ext import commands
 
-from src.config import APPLICATION_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING
+from src.config import APPLICATION_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, PARTIAL_REACTION, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, VOID_REACTION, WIN_REACTION
 from src.services.official_play_service import OfficialPlayService
 from src.services.team_ranking_service import TeamRankingService
 from src.services.team_summary_service import TeamSummaryService
@@ -19,6 +19,7 @@ logger = logging.getLogger("official_play_bot")
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
+intents.reactions = True
 
 class OfficialBot(commands.Bot):
     async def setup_hook(self) -> None:
@@ -71,6 +72,38 @@ async def publish_play_webhook(interaction: discord.Interaction, payload: dict) 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+
+
+@bot.event
+async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
+    if payload.user_id == bot.user.id:
+        return
+
+    result = {
+        WIN_REACTION: "win",
+        LOSS_REACTION: "loss",
+        VOID_REACTION: "void",
+        PARTIAL_REACTION: "partial",
+    }.get(str(payload.emoji))
+    if result is None:
+        return
+
+    try:
+        play = await asyncio.to_thread(official_play_service.get_play_for_message, payload.message_id)
+        if not play or str(play.get("discord_user_id")) != str(payload.user_id):
+            return
+        if play.get("status") != "open":
+            return
+        if result == "partial":
+            user = bot.get_user(payload.user_id) or await bot.fetch_user(payload.user_id)
+            await user.send(f"Play {play['id']} was marked partial. Use `/settle play_id:{play['id']} result:partial` for the remaining details.")
+            return
+
+        await asyncio.to_thread(official_play_service.settle_play, int(play["id"]), result)
+        user = bot.get_user(payload.user_id) or await bot.fetch_user(payload.user_id)
+        await user.send(f"Play {play['id']} settled as {result}.")
+    except Exception:
+        logger.exception("reaction_settlement_failed message=%s user=%s", payload.message_id, payload.user_id)
 
 
 @bot.event

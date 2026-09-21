@@ -65,10 +65,10 @@ class DiagnosticService:
 
     @staticmethod
     def _reaction_mapping() -> str:
-        reactions = {"✅": "win", "❌": "loss", "🚫": "void", "🌓": "partial"}
+        reactions = {"✅": "win", "❌": "loss", "🅿️": "void", "🌓": "partial"}
         if set(reactions.values()) != {"win", "loss", "void", "partial"}:
             raise AssertionError("reaction mapping incomplete")
-        return "✅ win, ❌ loss, 🚫 void, 🌓 partial"
+        return "✅ win, ❌ loss, 🅿️ void, 🌓 partial"
 
 
 diagnostic_service = DiagnosticService()

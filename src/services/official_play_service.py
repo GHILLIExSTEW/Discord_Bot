@@ -124,6 +124,15 @@ class OfficialPlayService:
     def attach_message_id(self, play_id: int, message_id: int) -> dict:
         return supabase_service.update("plays", {"message_id": str(message_id)}, {"id": int(play_id)})
 
+    def get_play_for_message(self, message_id: int) -> dict | None:
+        result = supabase_service.select("plays", "*", {"message_id": str(message_id)})
+        if not result.data:
+            return None
+        play = result.data[0]
+        user = supabase_service.select("users", "discord_user_id", {"id": play["user_id"]})
+        play["discord_user_id"] = user.data[0]["discord_user_id"] if user.data else None
+        return play
+
     def settle_play(self, play_id: int, result: str) -> dict:
         if result not in {"win", "loss", "void", "partial", "regraded"}:
             raise ValueError(f"Unsupported result: {result}")

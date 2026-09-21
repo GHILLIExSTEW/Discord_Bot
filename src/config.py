@@ -53,6 +53,10 @@ OFFICIAL_ROLE_IDS = {
     for role_id in (os.getenv("OFFICIAL_ROLE_IDS", "").split(","))
     if role_id.strip().isdigit()
 }
+WIN_REACTION = get_str("WIN_REACTION", "✅")
+LOSS_REACTION = get_str("LOSS_REACTION", "❌")
+VOID_REACTION = get_str("VOID_REACTION", "🅿️")
+PARTIAL_REACTION = get_str("PARTIAL_REACTION", "🌓")
 OPERATOR_ROLE_IDS = {
     int(role_id.strip())
     for role_id in (os.getenv("OPERATOR_ROLE_IDS", "").split(","))
