@@ -37,7 +37,6 @@ APPLICATION_ID = get_int("APPLICATION_ID")
 GUILD_ID = get_int("GUILD_ID")
 SUPABASE_URL = get_str("SUPABASE_URL")
 SUPABASE_KEY = get_str("SUPABASE_KEY")
-API_SPORTS_KEY = get_str("API_SPORTS_KEY")
 OPENAI_API_KEY = get_str("OPENAI_API_KEY")
 OPENAI_VISION_MODEL = get_str("OPENAI_VISION_MODEL", "gpt-5.4-mini")
 OPENAI_VISION_MODELS_RAW = get_str("OPENAI_VISION_MODELS", "")
@@ -70,34 +69,6 @@ if not OPENAI_VISION_MODELS:
     OPENAI_VISION_MODELS = [OPENAI_VISION_MODEL]
 
 
-ROSTER_SYNC_SPORTS = parse_csv_values("ROSTER_SYNC_SPORTS")
-ROSTER_SYNC_COUNTRIES = parse_csv_values("ROSTER_SYNC_COUNTRIES")
-ROSTER_SYNC_LEAGUE_IDS = [
-    int(item)
-    for item in parse_csv_values("ROSTER_SYNC_LEAGUE_IDS")
-    if item.isdigit()
-]
-ROSTER_SYNC_LEAGUE_NAMES = parse_csv_values("ROSTER_SYNC_LEAGUE_NAMES")
-ROSTER_SYNC_FILTERS: list[dict[str, str | int]] = []
-for country in ROSTER_SYNC_COUNTRIES:
-    ROSTER_SYNC_FILTERS.append({"country": country})
-for league_id in ROSTER_SYNC_LEAGUE_IDS:
-    ROSTER_SYNC_FILTERS.append({"league_id": league_id})
-for league_name in ROSTER_SYNC_LEAGUE_NAMES:
-    ROSTER_SYNC_FILTERS.append({"league_name": league_name})
-if not ROSTER_SYNC_FILTERS:
-    ROSTER_SYNC_FILTERS = [{"country": "United States"}]
-
-if not ROSTER_SYNC_SPORTS:
-    ROSTER_SYNC_SPORTS = ["american-football"]
-
-ROSTER_SYNC_SPORT_FILTERS: dict[str, list[dict[str, str | int]]] = {
-    "american-football": [
-        {"league_id": league_id}
-        for league_id in (ROSTER_SYNC_LEAGUE_IDS or [2, 1])
-    ],
-    "basketball": [{"league_id": 12}],
-}
 
 DEFAULT_CONFIG = {
     "timezone": TIMEZONE,

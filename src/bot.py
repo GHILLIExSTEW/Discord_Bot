@@ -7,7 +7,6 @@ from discord.ext import commands
 
 from src.config import APPLICATION_ID, DISCORD_TOKEN, GUILD_ID, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, TEAM_STATS_CHANNEL_ID
 from src.services.official_play_service import OfficialPlayService
-from src.services.team_admin_service import team_admin_service
 from src.services.team_ranking_service import TeamRankingService
 from src.services.team_summary_service import TeamSummaryService
 from src.services.play_service import PlayService
@@ -478,32 +477,6 @@ async def summary_command(interaction: discord.Interaction):
         embed.description = "\n".join(lines)
     embed.set_footer(text=f"Rows processed: {total_rows}")
     await interaction.response.send_message(embed=embed, ephemeral=False)
-
-
-@bot.tree.command(name="assignteam", description="Assign a Discord user to a team")
-@discord.app_commands.describe(member="Discord member", team_id="Internal team ID")
-async def assign_team_command(interaction: discord.Interaction, member: discord.Member, team_id: int):
-    if OFFICIAL_ROLE_IDS and not any(role.id in OFFICIAL_ROLE_IDS for role in interaction.user.roles):
-        await interaction.response.send_message("Only officials can assign team memberships.", ephemeral=True)
-        return
-
-    try:
-        result = team_admin_service.assign_user_to_team(str(member.id), team_id)
-    except Exception as exc:
-        await interaction.response.send_message(f"Assignment failed: {exc}", ephemeral=True)
-        return
-
-    await interaction.response.send_message(f"Assigned {member.mention} to team ID {team_id}.", ephemeral=True)
-
-
-@bot.tree.command(name="forcesync", description="Trigger an immediate roster sync pass")
-async def force_sync_command(interaction: discord.Interaction):
-    if OFFICIAL_ROLE_IDS and not any(role.id in OFFICIAL_ROLE_IDS for role in interaction.user.roles):
-        await interaction.response.send_message("Only officials can force a sync.", ephemeral=True)
-        return
-
-    outcome = team_admin_service.force_roster_sync()
-    await interaction.response.send_message(f"Roster sync triggered. Records processed: {outcome['synced_record_count']}", ephemeral=True)
 
 
 async def main() -> None:
