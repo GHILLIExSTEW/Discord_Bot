@@ -3,7 +3,7 @@ import asyncio
 import discord
 from discord.ext import commands
 
-from src.config import DISCORD_TOKEN, GUILD_ID, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, TEAM_STATS_CHANNEL_ID
+from src.config import APPLICATION_ID, DISCORD_TOKEN, GUILD_ID, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, TEAM_STATS_CHANNEL_ID
 from src.services.official_play_service import OfficialPlayService
 from src.services.roster_sync_service import RosterSyncService
 from src.services.team_admin_service import team_admin_service
