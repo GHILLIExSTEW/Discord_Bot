@@ -4,11 +4,14 @@ After=network.target
 
 [Service]
 Type=simple
+User=root
 WorkingDirectory=/opt/discord-bot
-ExecStart=/opt/discord-bot/.venv/bin/python -m src.bot
+ExecStart=/opt/discord-bot/.venv/bin/python3 -m src.bot
 Restart=always
 RestartSec=10
 Environment=PYTHONUNBUFFERED=1
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
