@@ -400,14 +400,8 @@ class ConfirmImageView(discord.ui.View):
                 await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
             else:
                 await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], self.source_message_id)
-            await interaction.edit_original_response(
-                content=f"Play {payload['play_id']} recorded from the original image.",
-                embed=None,
-                view=None,
-            )
             if interaction.message is not None:
                 await interaction.message.delete()
-            await interaction.followup.send(f"Play {payload['play_id']} recorded.")
             self.stop()
         except Exception as exc:
             logger.exception("image_play_confirm_failed interaction=%s", interaction.id)
