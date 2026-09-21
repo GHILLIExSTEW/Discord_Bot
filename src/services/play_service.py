@@ -66,6 +66,11 @@ class PlayService:
         if text.startswith("+"):
             text = text[1:]
         try:
+            if "." in text:
+                decimal_odds = float(text)
+                if decimal_odds <= 1:
+                    raise ValueError
+                return round((decimal_odds - 1) * 100)
             return int(text)
         except ValueError as exc:
             raise ValueError("Odds must be an integer like -110 or +164") from exc

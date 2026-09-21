@@ -12,13 +12,14 @@ from src.config import (
     OPENAI_VISION_MODEL,
     OPENAI_VISION_MODELS,
 )
+from src.services.play_service import PlayService
 
 
 class ImagePlayService:
     PROMPT = (
         "Read this betting slip. Return JSON only with keys: units (number), "
         "team_name (string or null), and legs (array). Each legs item must have "
-        "selection (string) and odds (integer). Do not guess unreadable text; "
+        "selection (string) and odds (American integer or decimal format like 1.44). Do not guess unreadable text; "
         "explain uncertainty in the selection."
     )
 
@@ -110,7 +111,7 @@ class ImagePlayService:
             if not isinstance(leg.get("selection"), str) or not leg["selection"].strip():
                 raise ValueError("At least one leg selection could not be read.")
             try:
-                odds = int(str(leg.get("odds")).replace("+", "").strip())
+                odds = PlayService.normalize_odds(leg.get("odds"))
             except (TypeError, ValueError):
                 odds = 0
             if odds == 0:

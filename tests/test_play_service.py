@@ -29,3 +29,9 @@ def test_validate_play_accepts_valid_input():
 def test_combine_american_odds_for_multiple_legs():
     service = PlayService()
     assert service.combine_american_odds([-110, -110]) == 264
+
+
+def test_normalize_decimal_odds_to_american():
+    service = PlayService()
+    assert service.normalize_odds("1.44") == 44
+    assert service.normalize_odds("1.57") == 57

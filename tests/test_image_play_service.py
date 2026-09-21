@@ -30,3 +30,9 @@ def test_extract_units_from_message_text():
     assert ImagePlayService.extract_units_from_text("2U") == 2.0
     assert ImagePlayService.extract_units_from_text("Units: 2.5") == 2.5
     assert ImagePlayService.extract_units_from_text("$20 stake") is None
+
+
+def test_image_play_validation_normalizes_decimal_odds():
+    data = {"units": 2, "legs": [{"selection": "Moneyline", "odds": "1.44"}]}
+    ImagePlayService._validate(data)
+    assert data["legs"][0]["odds"] == 44
