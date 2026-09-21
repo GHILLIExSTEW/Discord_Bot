@@ -5,7 +5,7 @@ import uuid
 import discord
 from discord.ext import commands
 
-from src.config import APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, PARTIAL_REACTION, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, VOID_REACTION, WIN_REACTION
+from src.config import APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, PARTIAL_REACTION, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, TRACKING_CHANNEL_ID, VOID_REACTION, WIN_REACTION
 from src.services.official_play_service import OfficialPlayService
 from src.services.team_ranking_service import TeamRankingService
 from src.services.team_summary_service import TeamSummaryService
@@ -430,9 +430,11 @@ def build_recorded_bet_embed(payload: dict, username: str) -> discord.Embed:
 
 
 async def send_confirmation_message(interaction: discord.Interaction, payload: dict) -> None:
-    if not CONFIRMATION_CHANNEL_ID:
+    channel_id = TRACKING_CHANNEL_ID or CONFIRMATION_CHANNEL_ID
+    if not channel_id:
+        logger.warning("recorded_bet_tracking_skipped play_id=%s: TRACKING_CHANNEL_ID is not configured", payload.get("play_id"))
         return
-    channel = bot.get_channel(CONFIRMATION_CHANNEL_ID) or await bot.fetch_channel(CONFIRMATION_CHANNEL_ID)
+    channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
     payload["leg_records"] = await asyncio.to_thread(official_play_service.get_play_legs, payload["play_id"])
     await channel.send(
         embed=build_recorded_bet_embed(payload, interaction.user.display_name),
