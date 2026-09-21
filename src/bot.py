@@ -1,12 +1,15 @@
 import asyncio
 import logging
 import uuid
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import discord
 from discord.ext import commands
 
-from src.config import APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, PARTIAL_REACTION, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, TRACKING_CHANNEL_ID, VOID_REACTION, WIN_REACTION
+from src.config import APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, PARTIAL_REACTION, RESULT_CHANNEL_ID, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, TRACKING_CHANNEL_ID, VOID_REACTION, WIN_REACTION
 from src.services.official_play_service import OfficialPlayService
+from src.services.supabase_service import supabase_service
 from src.services.team_ranking_service import TeamRankingService
 from src.services.team_summary_service import TeamSummaryService
 from src.services.play_service import PlayService
@@ -67,6 +70,95 @@ async def publish_play_webhook(interaction: discord.Interaction, payload: dict) 
         )
     finally:
         await webhook.delete(reason="Temporary user-attributed official play webhook")
+
+
+def fetch_legacy_tracker_rows() -> tuple[list[dict], list[dict], list[dict]]:
+    client = supabase_service._ensure_client()
+    def fetch(table: str, columns: str) -> list[dict]:
+        rows = []
+        offset = 0
+        while True:
+            batch = client.table(table).select(columns).range(offset, offset + 999).execute().data or []
+            rows.extend(batch)
+            if len(batch) < 1000:
+                return rows
+            offset += 1000
+    return (
+        fetch("unit_entries", "message_id,user_id,total_units,created_at"),
+        fetch("unit_results", "message_id,user_id,total_units,result,created_at"),
+        fetch("playmakers", "user_id,display_name"),
+    )
+
+
+def parse_tracker_time(value: str, timezone_name: str) -> datetime:
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(ZoneInfo(timezone_name))
+
+
+def build_legacy_tracker_embed(entries: list[dict], results: list[dict], playmakers: list[dict]) -> tuple[discord.Embed, list[str]]:
+    timezone_name = "America/New_York"
+    now = datetime.now(ZoneInfo(timezone_name))
+    today = now.date()
+    settled_ids = {str(row.get("message_id")) for row in results}
+    pending = [row for row in entries if str(row.get("message_id")) not in settled_ids]
+
+    def signed(row: dict) -> float:
+        units = float(row.get("total_units") or 0)
+        return units if row.get("result") == "win" else -units
+
+    def in_period(row: dict, start: datetime) -> bool:
+        return start <= parse_tracker_time(row["created_at"], timezone_name) <= now
+
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = day_start - timedelta(days=day_start.weekday())
+    month_start = day_start.replace(day=1)
+    year_start = day_start.replace(month=1, day=1)
+    daily = [row for row in results if parse_tracker_time(row["created_at"], timezone_name).date() == today]
+
+    def net(rows: list[dict]) -> float:
+        return sum(signed(row) for row in rows)
+
+    win_units = sum(float(row.get("total_units") or 0) for row in daily if row.get("result") == "win")
+    loss_units = sum(float(row.get("total_units") or 0) for row in daily if row.get("result") == "loss")
+    all_wins = sum(float(row.get("total_units") or 0) for row in results if row.get("result") == "win")
+    all_losses = sum(float(row.get("total_units") or 0) for row in results if row.get("result") == "loss")
+
+    by_user = {}
+    names = {str(row["user_id"]): row.get("display_name") for row in playmakers}
+    for row in results:
+        user_id = str(row.get("user_id"))
+        bucket = by_user.setdefault(user_id, {"wins": 0.0, "losses": 0.0, "win_count": 0, "loss_count": 0})
+        units = float(row.get("total_units") or 0)
+        if row.get("result") == "win":
+            bucket["wins"] += units
+            bucket["win_count"] += 1
+        else:
+            bucket["losses"] += units
+            bucket["loss_count"] += 1
+    ranked = sorted(by_user.items(), key=lambda item: item[1]["wins"] - item[1]["losses"], reverse=True)
+    top_lines = []
+    breakdown = []
+    medals = ["🥇", "🥈", "🥉"]
+    for index, (user_id, data) in enumerate(ranked):
+        name = names.get(user_id, user_id)
+        total = data["win_count"] + data["loss_count"]
+        rate = data["win_count"] / total * 100 if total else 0
+        if index < 3:
+            top_lines.append(f"{medals[index]} **{name}** — **{data['wins'] - data['losses']:+g} units**\n{data['win_count']}-{data['loss_count']} record | {rate:.0f}% win rate")
+        breakdown.append(f"**{name}**\nRecord: {data['win_count']}-{data['loss_count']} ({rate:.0f}% win rate)")
+
+    embed = discord.Embed(title="Playmaker Picks | Unit Summary", description=f"Results for **{today.strftime('%B %-d, %Y')}**", color=discord.Color.green())
+    embed.add_field(name="📉 Daily Results", value=f"Net\n**{net(daily):+g} units**\n\n✅ Wins\n+{win_units:g} units\n\n❌ Losses\n-{loss_units:g} units\n\n📋 Results\n{len(daily)}\n\n⏳ Pending\n{len(pending)} bets", inline=True)
+    seven_day_net = net([row for row in results if in_period(row, now - timedelta(days=6))])
+    month_net = net([row for row in results if in_period(row, month_start)])
+    year_net = net([row for row in results if in_period(row, year_start)])
+    embed.add_field(name="📊 Period Totals", value=f"📈 **7-Day**\n**{seven_day_net:+g} units**\n\n🔄 **Month-to-Date**\n**{month_net:+g} units**\n\n🏆 **Year-to-Date**\n**{year_net:+g} units", inline=True)
+    embed.add_field(name="🏆 All-Time Summary", value=f"Net\n**{all_wins - all_losses:+g} units**\n\n✅ Wins\n+{all_wins:g} units\n\n❌ Losses\n-{all_losses:g} units\n\n📋 Results\n{len(results)}", inline=True)
+    embed.add_field(name="Playmaker Breakdown", value="\n".join(breakdown)[:1024] or "No settled results yet.", inline=False)
+    embed.set_footer(text="Updated on request")
+    return embed, top_lines
 
 
 @bot.event
@@ -854,7 +946,36 @@ async def summary_command(interaction: discord.Interaction):
 
 @bot.tree.command(name="update_tracker", description="Refresh the Unit Summary and Top Playmakers embeds")
 async def update_tracker_command(interaction: discord.Interaction):
-    await summary_command.callback(interaction)
+    try:
+        await interaction.response.defer(ephemeral=True)
+        entries, results, playmakers = await asyncio.to_thread(fetch_legacy_tracker_rows)
+        tracker_embed, top_lines = build_legacy_tracker_embed(entries, results, playmakers)
+        if not RESULT_CHANNEL_ID:
+            await interaction.followup.send("RESULT_CHANNEL_ID is not configured.", ephemeral=True)
+            return
+        tracker_channel = bot.get_channel(RESULT_CHANNEL_ID) or await bot.fetch_channel(RESULT_CHANNEL_ID)
+        tracker_message = None
+        async for message in tracker_channel.history(limit=50):
+            if message.author == bot.user and message.embeds and message.embeds[0].title == "Playmaker Picks | Unit Summary":
+                tracker_message = message
+                break
+        if tracker_message:
+            await tracker_message.edit(embed=tracker_embed)
+        else:
+            await tracker_channel.send(embed=tracker_embed)
+
+        if TEAM_STATS_CHANNEL_ID:
+            team_channel = bot.get_channel(TEAM_STATS_CHANNEL_ID) or await bot.fetch_channel(TEAM_STATS_CHANNEL_ID)
+            top_embed = discord.Embed(title="Top Playmakers", color=discord.Color.gold())
+            top_embed.description = "\n\n".join(top_lines) or "No settled results yet."
+            await team_channel.send(embed=top_embed)
+        await interaction.followup.send("Tracker updated.", ephemeral=True)
+    except Exception as exc:
+        logger.exception("legacy_tracker_update_failed")
+        if interaction.response.is_done():
+            await interaction.followup.send(f"Tracker update failed: {exc}", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Tracker update failed: {exc}", ephemeral=True)
 
 
 async def main() -> None:
