@@ -843,10 +843,13 @@ async def summary_command(interaction: discord.Interaction):
         top_lines.append(f"{medal} **{name}** — **{data['net']:+g} units**\n{data['wins']}-{data['losses']} record | {data['rate']}% win rate")
     for name, data in report["playmakers"]:
         breakdown.append(f"**{name}**\nRecord: {data['wins']}-{data['losses']} ({data['rate']}% win rate)")
-    embed.add_field(name="🏅 Top Playmakers", value="\n".join(top_lines) or "No settled plays yet.", inline=False)
     embed.add_field(name="Playmaker Breakdown", value="\n".join(breakdown)[:1024] or "No settled plays yet.", inline=False)
     embed.set_footer(text="Updated on request")
     await interaction.response.send_message(embed=embed, ephemeral=False)
+
+    top_embed = discord.Embed(title="Top Playmakers", color=discord.Color.gold())
+    top_embed.description = "\n\n".join(top_lines) or "No settled plays yet."
+    await interaction.followup.send(embed=top_embed, ephemeral=False)
 
 
 async def main() -> None:
