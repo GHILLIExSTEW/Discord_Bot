@@ -1,8 +1,7 @@
-import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
-from src.config import ROSTER_SYNC_DAYS, ROSTER_SYNC_SPORT_FILTERS, ROSTER_SYNC_SPORTS
+from src.config import ROSTER_SYNC_SPORT_FILTERS
 from src.services.supabase_service import supabase_service
 from src.services.api_sports_service import api_sports_service
 
@@ -306,24 +305,3 @@ class RosterSyncService:
         })
         return total
 
-    async def run_annually(self) -> None:
-        while True:
-            try:
-                for sport_slug in ROSTER_SYNC_SPORTS:
-                    sport_name = sport_slug.replace("-", " ").title()
-                    await asyncio.to_thread(
-                        self.sync_sport,
-                        sport_name,
-                        sport_slug,
-                        ROSTER_SYNC_SPORT_FILTERS.get(sport_slug, []),
-                    )
-            except Exception as exc:
-                supabase_service.insert("sync_jobs", {
-                    "job_name": self.job_name,
-                    "started_at": self.now_iso(),
-                    "finished_at": self.now_iso(),
-                    "success": False,
-                    "record_count": 0,
-                    "error_message": str(exc),
-                })
-            await asyncio.sleep(ROSTER_SYNC_DAYS * 24 * 60 * 60)

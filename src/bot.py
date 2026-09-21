@@ -8,7 +8,6 @@ from discord.ext import commands
 from src.config import APPLICATION_ID, DISCORD_TOKEN, GUILD_ID, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, TEAM_STATS_CHANNEL_ID
 from src.services.official_play_service import OfficialPlayService
 from src.services.team_admin_service import team_admin_service
-from src.services.team_management_service import TeamManagementService
 from src.services.team_ranking_service import TeamRankingService
 from src.services.team_summary_service import TeamSummaryService
 from src.services.play_service import PlayService
@@ -37,7 +36,6 @@ bot = OfficialBot(command_prefix="!", intents=intents, application_id=APPLICATIO
 official_play_service = OfficialPlayService()
 team_ranking_service = TeamRankingService()
 team_summary_service = TeamSummaryService()
-team_management_service = TeamManagementService()
 play_service = PlayService()
 
 
