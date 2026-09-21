@@ -84,7 +84,7 @@ async def on_message(message: discord.Message):
         if image is None:
             return
         try:
-            parsed = await asyncio.to_thread(image_play_service.extract_play, image.url)
+            parsed = await asyncio.to_thread(image_play_service.extract_play, image.url, message.content)
             await message.channel.send(
                 f"{message.author.mention}, test image parsed. Nothing will be recorded.",
                 embed=build_image_test_embed(parsed),
@@ -591,7 +591,7 @@ async def test_command(interaction: discord.Interaction, image: discord.Attachme
             return
         await interaction.response.defer(ephemeral=True)
         try:
-            parsed = await asyncio.to_thread(image_play_service.extract_play, image.url)
+            parsed = await asyncio.to_thread(image_play_service.extract_play, image.url, message.content)
             await interaction.followup.send(embed=build_image_test_embed(parsed), view=TestImageView(parsed), ephemeral=True)
         except Exception as exc:
             logger.exception("test_image_failed interaction=%s", interaction.id)

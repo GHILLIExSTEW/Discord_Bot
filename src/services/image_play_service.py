@@ -21,7 +21,7 @@ class ImagePlayService:
         "explain uncertainty in the selection."
     )
 
-    def extract_play(self, image_url: str) -> dict[str, Any]:
+    def extract_play(self, image_url: str, message_text: str = "") -> dict[str, Any]:
         errors = []
         providers = []
         if OPENAI_API_KEY:
@@ -35,7 +35,7 @@ class ImagePlayService:
         for name, url, api_key, model in providers:
             for attempt in range(2):
                 try:
-                    return self._extract_with_provider(image_url, name, url, api_key, model)
+                    return self._extract_with_provider(image_url, message_text, name, url, api_key, model)
                 except Exception as exc:
                     errors.append(f"{name} attempt {attempt + 1}: {exc}")
                     if attempt == 0:
@@ -43,7 +43,7 @@ class ImagePlayService:
 
         raise RuntimeError("All vision providers failed or blocked the image. " + " | ".join(errors))
 
-    def _extract_with_provider(self, image_url: str, name: str, url: str, api_key: str, model: str) -> dict[str, Any]:
+    def _extract_with_provider(self, image_url: str, message_text: str, name: str, url: str, api_key: str, model: str) -> dict[str, Any]:
         response = requests.post(
             url,
             headers={"Authorization": f"Bearer {api_key}"},
@@ -51,7 +51,7 @@ class ImagePlayService:
                 "model": model,
                 "response_format": {"type": "json_object"},
                 "messages": [{"role": "user", "content": [
-                    {"type": "text", "text": self.PROMPT},
+                    {"type": "text", "text": f"{self.PROMPT}\nDiscord message text, which may contain units: {message_text or '<none>'}"},
                     {"type": "image_url", "image_url": {"url": image_url}},
                 ]}],
             },
