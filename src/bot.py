@@ -433,6 +433,7 @@ async def send_confirmation_message(interaction: discord.Interaction, payload: d
     if not CONFIRMATION_CHANNEL_ID:
         return
     channel = bot.get_channel(CONFIRMATION_CHANNEL_ID) or await bot.fetch_channel(CONFIRMATION_CHANNEL_ID)
+    payload["leg_records"] = await asyncio.to_thread(official_play_service.get_play_legs, payload["play_id"])
     await channel.send(
         embed=build_recorded_bet_embed(payload, interaction.user.display_name),
         view=EditBetView(payload["play_id"], interaction.user.id, payload),
@@ -453,16 +454,9 @@ class EditBetModal(discord.ui.Modal, title="Edit Recorded Bet"):
         self.payload = payload
         self.units.default = str(payload.get("units", ""))
         self.team.default = payload.get("team_name") or ""
-        self.selections.default = "\n".join(
-            line.split(": ", 1)[1].rsplit(" (", 1)[0] if ": " in line else line
-            for line in (payload.get("play_text") or "").splitlines()
-            if line.strip()
-        )
-        self.odds.default = "\n".join(
-            line.rsplit("(", 1)[-1].rstrip(")")
-            for line in (payload.get("play_text") or "").splitlines()
-            if "(" in line
-        )
+        leg_records = payload.get("leg_records") or []
+        self.selections.default = "\n".join(leg["selection"] for leg in leg_records)
+        self.odds.default = "\n".join(str(leg["odds"]) for leg in leg_records)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         if interaction.user.id != self.owner_id:

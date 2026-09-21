@@ -148,6 +148,10 @@ class OfficialPlayService:
         ])
         return {"play_id": play_id, "units": float(units), "legs": len(selections), "odds": combined_odds, "team_name": team_name}
 
+    def get_play_legs(self, play_id: int) -> list[dict]:
+        result = supabase_service.select("play_legs", "leg_number,selection,odds", {"play_id": int(play_id)})
+        return sorted(result.data or [], key=lambda leg: leg["leg_number"])
+
     def get_play_for_message(self, message_id: int) -> dict | None:
         result = supabase_service.select("plays", "*", {"message_id": str(message_id)})
         if not result.data:
