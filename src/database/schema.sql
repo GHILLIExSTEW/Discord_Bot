@@ -87,6 +87,30 @@ create table if not exists public.plays (
   settled_by bigint references public.users(id) on delete set null
 );
 
+create table if not exists public.play_draft_legs (
+  id bigserial primary key,
+  draft_id text not null,
+  discord_user_id text not null,
+  units numeric(10,2) not null check (units > 0),
+  expected_legs integer not null check (expected_legs >= 1),
+  leg_number integer not null check (leg_number >= 1),
+  selection text not null,
+  odds integer not null check (odds <> 0),
+  team_name text,
+  created_at timestamptz not null default now(),
+  unique (draft_id, leg_number)
+);
+
+create table if not exists public.play_legs (
+  id bigserial primary key,
+  play_id bigint not null references public.plays(id) on delete cascade,
+  leg_number integer not null check (leg_number >= 1),
+  selection text not null,
+  odds integer not null check (odds <> 0),
+  created_at timestamptz not null default now(),
+  unique (play_id, leg_number)
+);
+
 create table if not exists public.play_versions (
   id bigserial primary key,
   play_id bigint not null references public.plays(id) on delete cascade,
@@ -141,6 +165,8 @@ create index if not exists idx_plays_user_created on public.plays(user_id, creat
 create index if not exists idx_plays_status on public.plays(status);
 create index if not exists idx_plays_sport_team on public.plays(sport_id, team_id, created_at);
 create index if not exists idx_plays_team_name on public.plays(team_name);
+create index if not exists idx_play_draft_legs_draft on public.play_draft_legs(draft_id, leg_number);
+create index if not exists idx_play_legs_play on public.play_legs(play_id, leg_number);
 create index if not exists idx_play_versions_play on public.play_versions(play_id, version_number);
 create index if not exists idx_settlements_play on public.settlements(play_id, created_at);
 create index if not exists idx_team_daily_summary_date on public.team_daily_summary(report_date);

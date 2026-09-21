@@ -32,6 +32,31 @@ class OfficialPlayService:
         })
         return int(inserted.data[0]["id"])
 
+    def save_draft_leg(self, draft_id: str, discord_user_id: str, units: float, expected_legs: int, leg_number: int, selection: str, odds: int, team_name: str | None = None) -> None:
+        supabase_service.upsert("play_draft_legs", {
+            "draft_id": draft_id,
+            "discord_user_id": discord_user_id,
+            "units": units,
+            "expected_legs": expected_legs,
+            "leg_number": leg_number,
+            "selection": selection,
+            "odds": odds,
+            "team_name": team_name or None,
+        }, ["draft_id", "leg_number"])
+
+    def get_draft_legs(self, draft_id: str, discord_user_id: str) -> list[dict]:
+        result = supabase_service.select("play_draft_legs", "*", {
+            "draft_id": draft_id,
+            "discord_user_id": discord_user_id,
+        })
+        return sorted(result.data or [], key=lambda item: item["leg_number"])
+
+    def clear_draft_legs(self, draft_id: str, discord_user_id: str) -> None:
+        supabase_service.delete("play_draft_legs", {
+            "draft_id": draft_id,
+            "discord_user_id": discord_user_id,
+        })
+
     def create_play_record(
         self,
         discord_user_id: str,
@@ -41,6 +66,7 @@ class OfficialPlayService:
         odds: str,
         play_text: str = "",
         team_name: str | None = None,
+        leg_records: list[dict] | None = None,
     ) -> dict:
         validation_error = self.play_service.validate_play(units, legs, odds)
         if validation_error:
@@ -71,6 +97,16 @@ class OfficialPlayService:
 
         inserted = supabase_service.insert("plays", payload)
         play_id = int(inserted.data[0]["id"])
+        if leg_records:
+            supabase_service.insert("play_legs", [
+                {
+                    "play_id": play_id,
+                    "leg_number": index,
+                    "selection": leg["selection"],
+                    "odds": int(leg["odds"]),
+                }
+                for index, leg in enumerate(leg_records, start=1)
+            ])
 
         return {
             "play_id": play_id,

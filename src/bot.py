@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 
 import discord
 from discord.ext import commands
@@ -11,6 +12,7 @@ from src.services.team_admin_service import team_admin_service
 from src.services.team_management_service import TeamManagementService
 from src.services.team_ranking_service import TeamRankingService
 from src.services.team_summary_service import TeamSummaryService
+from src.services.play_service import PlayService
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("official_play_bot")
@@ -36,6 +38,7 @@ official_play_service = OfficialPlayService()
 team_ranking_service = TeamRankingService()
 team_summary_service = TeamSummaryService()
 team_management_service = TeamManagementService()
+play_service = PlayService()
 
 
 @bot.event
@@ -48,11 +51,11 @@ async def record_modal_play(
     interaction: discord.Interaction,
     units: float,
     legs: int,
-    odds: str,
+    odds_values: list[int],
     team_name: str,
     play_text: str,
+    leg_records: list[dict],
 ) -> None:
-    await interaction.response.defer()
     logger.info("play_modal_deferred interaction=%s", interaction.id)
     try:
         logger.info("play_db_start interaction=%s", interaction.id)
@@ -62,9 +65,10 @@ async def record_modal_play(
             username=interaction.user.display_name,
             units=units,
             legs=legs,
-            odds=odds,
+            odds=play_service.combine_american_odds(odds_values),
             team_name=team_name,
             play_text=play_text,
+            leg_records=leg_records,
         )
         logger.info("play_db_complete interaction=%s play_id=%s error=%s", interaction.id, payload.get("play_id"), bool(payload.get("error")))
     except Exception as exc:
@@ -107,32 +111,55 @@ class LegModal(discord.ui.Modal):
         required=True,
         max_length=1000,
     )
+    leg_odds = discord.ui.TextInput(
+        label="Leg odds",
+        placeholder="Example: -110 or +150",
+        required=True,
+        max_length=20,
+    )
 
-    def __init__(self, units: float, legs: int, odds: str, team_name: str, notes: str, leg_number: int, collected: list[str], progress_message=None):
+    def __init__(self, draft_id: str, units: float, legs: int, odds_values: list[int], team_name: str, leg_number: int, collected: list[str], progress_message=None):
         super().__init__(title=f"Enter Leg {leg_number} of {legs}")
+        self.draft_id = draft_id
         self.units = units
         self.legs = legs
-        self.odds = odds
+        self.odds_values = odds_values
         self.team_name = team_name
-        self.notes = notes
         self.leg_number = leg_number
         self.collected = collected
         self.progress_message = progress_message
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        self.collected.append(f"Leg {self.leg_number}: {self.leg_details.value.strip()}")
+        try:
+            leg_odds = play_service.normalize_odds(self.leg_odds.value)
+        except ValueError as exc:
+            await interaction.response.send_message(str(exc), ephemeral=True)
+            return
+        self.collected.append(f"Leg {self.leg_number}: {self.leg_details.value.strip()} ({leg_odds:+d})")
+        self.odds_values.append(leg_odds)
+        await interaction.response.defer()
+        await asyncio.to_thread(
+            official_play_service.save_draft_leg,
+            self.draft_id,
+            str(interaction.user.id),
+            self.units,
+            self.legs,
+            self.leg_number,
+            self.leg_details.value.strip(),
+            leg_odds,
+            self.team_name,
+        )
         logger.info("leg_modal_submit interaction=%s leg=%s/%s", interaction.id, self.leg_number, self.legs)
         if self.leg_number < self.legs:
             next_view = LegEntryView(
+                    self.draft_id,
                     self.units,
                     self.legs,
-                    self.odds,
+                    self.odds_values,
                     self.team_name,
-                    self.notes,
                     self.leg_number + 1,
                     self.collected,
                 )
-            await interaction.response.defer()
             if self.progress_message is not None:
                 next_view.message = self.progress_message
                 await self.progress_message.edit(
@@ -147,20 +174,20 @@ class LegModal(discord.ui.Modal):
                 )
             return
 
-        combined = "\n".join(self.collected)
-        if self.notes.strip():
-            combined = f"{combined}\n\nNotes: {self.notes.strip()}"
-        await record_modal_play(interaction, self.units, self.legs, self.odds, self.team_name, combined)
+        draft_legs = await asyncio.to_thread(official_play_service.get_draft_legs, self.draft_id, str(interaction.user.id))
+        combined = "\n".join(f"Leg {leg['leg_number']}: {leg['selection']} ({int(leg['odds']):+d})" for leg in draft_legs)
+        await record_modal_play(interaction, self.units, self.legs, [int(leg["odds"]) for leg in draft_legs], self.team_name, combined, draft_legs)
+        await asyncio.to_thread(official_play_service.clear_draft_legs, self.draft_id, str(interaction.user.id))
 
 
 class LegEntryView(discord.ui.View):
-    def __init__(self, units: float, legs: int, odds: str, team_name: str, notes: str, leg_number: int, collected: list[str]):
+    def __init__(self, draft_id: str, units: float, legs: int, odds_values: list[int], team_name: str, leg_number: int, collected: list[str]):
         super().__init__(timeout=900)
+        self.draft_id = draft_id
         self.units = units
         self.legs = legs
-        self.odds = odds
+        self.odds_values = odds_values
         self.team_name = team_name
-        self.notes = notes
         self.leg_number = leg_number
         self.collected = collected
         self.message = None
@@ -169,11 +196,11 @@ class LegEntryView(discord.ui.View):
     async def enter_next_leg(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         self.message = interaction.message
         await interaction.response.send_modal(LegModal(
+            self.draft_id,
                 self.units,
                 self.legs,
-                self.odds,
+                self.odds_values,
                 self.team_name,
-                self.notes,
                 self.leg_number,
                 self.collected,
                 self.message,
@@ -183,9 +210,9 @@ class LegEntryView(discord.ui.View):
 class PlayModal(discord.ui.Modal, title="Record Official Play"):
     units = discord.ui.TextInput(label="Units risked", placeholder="Example: 2", required=True, max_length=20)
     legs = discord.ui.TextInput(label="Number of legs", placeholder="Example: 3", required=True, max_length=10)
-    odds = discord.ui.TextInput(label="American odds", placeholder="Example: -110 or +150", required=True, max_length=20)
+    leg_one = discord.ui.TextInput(label="Leg 1 selection", placeholder="Enter the first pick or selection", required=True, max_length=1000)
+    leg_one_odds = discord.ui.TextInput(label="Leg 1 odds", placeholder="Example: -110 or +150", required=True, max_length=20)
     team_name = discord.ui.TextInput(label="Team (optional)", placeholder="Enter a team, including an untracked team", required=False, max_length=100)
-    play_text = discord.ui.TextInput(label="Notes (optional)", style=discord.TextStyle.paragraph, required=False, max_length=1000)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         logger.info("play_modal_submit interaction=%s user=%s channel=%s", interaction.id, interaction.user.id, interaction.channel_id)
@@ -201,30 +228,53 @@ class PlayModal(discord.ui.Modal, title="Record Official Play"):
             await interaction.response.send_message("Legs must be between 1 and 10.", ephemeral=True)
             return
 
+        try:
+            first_odds = play_service.normalize_odds(self.leg_one_odds.value)
+        except ValueError as exc:
+            await interaction.response.send_message(str(exc), ephemeral=True)
+            return
+
+        collected = [f"Leg 1: {self.leg_one.value.strip()}"]
+        draft_id = str(uuid.uuid4())
+        await interaction.response.defer()
+        await asyncio.to_thread(
+            official_play_service.save_draft_leg,
+            draft_id,
+            str(interaction.user.id),
+            units,
+            legs,
+            1,
+            self.leg_one.value.strip(),
+            first_odds,
+            self.team_name.value,
+        )
         if legs > 1:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "Start entering the legs one at a time.",
                 ephemeral=True,
                 view=LegEntryView(
+                    draft_id,
                     units,
                     legs,
-                    self.odds.value,
+                    [first_odds],
                     self.team_name.value,
-                    self.play_text.value,
-                    1,
-                    [],
+                    2,
+                    collected,
                 ),
             )
             return
 
+        draft_legs = await asyncio.to_thread(official_play_service.get_draft_legs, draft_id, str(interaction.user.id))
         await record_modal_play(
             interaction,
             units,
             legs,
-            self.odds.value,
+            [first_odds],
             self.team_name.value,
-            self.play_text.value,
+            "\n".join(collected),
+            draft_legs,
         )
+        await asyncio.to_thread(official_play_service.clear_draft_legs, draft_id, str(interaction.user.id))
 
 
 @bot.tree.command(name="play", description="Open the official play entry form")
