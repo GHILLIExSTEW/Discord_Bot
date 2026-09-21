@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from typing import Any
 
@@ -35,13 +36,25 @@ class ImagePlayService:
         for name, url, api_key, model in providers:
             for attempt in range(2):
                 try:
-                    return self._extract_with_provider(image_url, message_text, name, url, api_key, model)
+                    parsed = self._extract_with_provider(image_url, message_text, name, url, api_key, model)
+                    text_units = self.extract_units_from_text(message_text)
+                    if text_units is not None:
+                        parsed["units"] = text_units
+                    return parsed
                 except Exception as exc:
                     errors.append(f"{name} attempt {attempt + 1}: {exc}")
                     if attempt == 0:
                         time.sleep(1)
 
         raise RuntimeError("All vision providers failed or blocked the image. " + " | ".join(errors))
+
+    @staticmethod
+    def extract_units_from_text(message_text: str) -> float | None:
+        text = message_text or ""
+        match = re.search(r"\bunits?\s*[:=]?\s*(\d+(?:\.\d+)?)\b", text, re.IGNORECASE)
+        if match is None:
+            match = re.search(r"(?<![\w$])(\d+(?:\.\d+)?)\s*u(?:nits?)?\b", text, re.IGNORECASE)
+        return float(match.group(1)) if match else None
 
     def _extract_with_provider(self, image_url: str, message_text: str, name: str, url: str, api_key: str, model: str) -> dict[str, Any]:
         response = requests.post(

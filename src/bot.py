@@ -138,7 +138,7 @@ async def on_message(message: discord.Message):
         return
 
     try:
-        parsed = await asyncio.to_thread(image_play_service.extract_play, image.url)
+        parsed = await asyncio.to_thread(image_play_service.extract_play, image.url, message.content)
         await message.channel.send(
             "User Reviewing Bet",
             view=AutoImageView(message.author.id, parsed, message.id),

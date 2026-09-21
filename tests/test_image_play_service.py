@@ -24,3 +24,9 @@ def test_image_play_validation_normalizes_string_numbers():
     ImagePlayService._validate(data)
     assert data["units"] == 2.0
     assert data["legs"][0]["odds"] == -110
+
+
+def test_extract_units_from_message_text():
+    assert ImagePlayService.extract_units_from_text("2U") == 2.0
+    assert ImagePlayService.extract_units_from_text("Units: 2.5") == 2.5
+    assert ImagePlayService.extract_units_from_text("$20 stake") is None
