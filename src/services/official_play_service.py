@@ -124,6 +124,30 @@ class OfficialPlayService:
     def attach_message_id(self, play_id: int, message_id: int) -> dict:
         return supabase_service.update("plays", {"message_id": str(message_id)}, {"id": int(play_id)})
 
+    def edit_play_record(self, play_id: int, units: float, team_name: str, selections: list[str], odds: list[int], note: str = "") -> dict:
+        if len(selections) != len(odds) or not selections:
+            raise ValueError("Selections and odds must contain the same number of legs.")
+        combined_odds = self.play_service.combine_american_odds(odds)
+        validation_error = self.play_service.validate_play(units, len(selections), combined_odds)
+        if validation_error:
+            raise ValueError(validation_error["message"])
+        supabase_service.update("plays", {
+            "units": float(units),
+            "legs": len(selections),
+            "odds": combined_odds,
+            "team_name": " ".join((team_name or "").strip().split()) or None,
+            "play_text": note or "\n".join(
+                f"Leg {index}: {selection} ({leg_odds:+d})"
+                for index, (selection, leg_odds) in enumerate(zip(selections, odds), start=1)
+            ),
+        }, {"id": int(play_id)})
+        supabase_service.delete("play_legs", {"play_id": int(play_id)})
+        supabase_service.insert("play_legs", [
+            {"play_id": int(play_id), "leg_number": index, "selection": selection, "odds": int(leg_odds)}
+            for index, (selection, leg_odds) in enumerate(zip(selections, odds), start=1)
+        ])
+        return {"play_id": play_id, "units": float(units), "legs": len(selections), "odds": combined_odds, "team_name": team_name}
+
     def get_play_for_message(self, message_id: int) -> dict | None:
         result = supabase_service.select("plays", "*", {"message_id": str(message_id)})
         if not result.data:

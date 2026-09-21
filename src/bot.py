@@ -5,7 +5,7 @@ import uuid
 import discord
 from discord.ext import commands
 
-from src.config import APPLICATION_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, PARTIAL_REACTION, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, VOID_REACTION, WIN_REACTION
+from src.config import APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, PARTIAL_REACTION, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, VOID_REACTION, WIN_REACTION
 from src.services.official_play_service import OfficialPlayService
 from src.services.team_ranking_service import TeamRankingService
 from src.services.team_summary_service import TeamSummaryService
@@ -192,6 +192,7 @@ async def record_modal_play(
 
     logger.info("play_webhook_complete interaction=%s message_id=%s", interaction.id, message.id)
     await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
+    await send_confirmation_message(interaction, payload)
     logger.info("play_complete interaction=%s play_id=%s", interaction.id, payload["play_id"])
 
 
@@ -400,6 +401,7 @@ class ConfirmImageView(discord.ui.View):
                 await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
             else:
                 await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], self.source_message_id)
+            await send_confirmation_message(interaction, payload)
             if interaction.message is not None:
                 await interaction.message.delete()
             self.stop()
@@ -411,6 +413,93 @@ class ConfirmImageView(discord.ui.View):
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         await interaction.response.edit_message(content="Image import cancelled.", embed=None, view=None)
         self.stop()
+
+
+def build_recorded_bet_embed(payload: dict, username: str) -> discord.Embed:
+    embed = discord.Embed(title="Recorded Bet", description=payload["summary"], color=discord.Color.green())
+    embed.set_author(name=username)
+    embed.add_field(name="Units", value=f"{payload['units']}u", inline=True)
+    embed.add_field(name="Legs", value=str(payload["legs"]), inline=True)
+    embed.add_field(name="Odds", value=f"{int(payload['odds']):+d}", inline=True)
+    embed.add_field(name="To win", value=f"{payload['to_win']}u", inline=True)
+    if payload.get("team_name"):
+        embed.add_field(name="Team", value=payload["team_name"], inline=False)
+    if payload.get("play_text"):
+        embed.add_field(name="Selections", value=payload["play_text"][:1024], inline=False)
+    return embed
+
+
+async def send_confirmation_message(interaction: discord.Interaction, payload: dict) -> None:
+    if not CONFIRMATION_CHANNEL_ID:
+        return
+    channel = bot.get_channel(CONFIRMATION_CHANNEL_ID) or await bot.fetch_channel(CONFIRMATION_CHANNEL_ID)
+    await channel.send(
+        embed=build_recorded_bet_embed(payload, interaction.user.display_name),
+        view=EditBetView(payload["play_id"], interaction.user.id, payload),
+    )
+
+
+class EditBetModal(discord.ui.Modal, title="Edit Recorded Bet"):
+    units = discord.ui.TextInput(label="Units", required=True, max_length=20)
+    team = discord.ui.TextInput(label="Team", required=False, max_length=100)
+    selections = discord.ui.TextInput(label="Selections, one per line", style=discord.TextStyle.paragraph, required=True, max_length=2000)
+    odds = discord.ui.TextInput(label="Odds, one per line", style=discord.TextStyle.paragraph, required=True, max_length=500)
+    notes = discord.ui.TextInput(label="Notes", style=discord.TextStyle.paragraph, required=False, max_length=1000)
+
+    def __init__(self, play_id: int, owner_id: int, payload: dict):
+        super().__init__()
+        self.play_id = play_id
+        self.owner_id = owner_id
+        self.payload = payload
+        self.units.default = str(payload.get("units", ""))
+        self.team.default = payload.get("team_name") or ""
+        self.selections.default = "\n".join(
+            line.split(": ", 1)[1].rsplit(" (", 1)[0] if ": " in line else line
+            for line in (payload.get("play_text") or "").splitlines()
+            if line.strip()
+        )
+        self.odds.default = "\n".join(
+            line.rsplit("(", 1)[-1].rstrip(")")
+            for line in (payload.get("play_text") or "").splitlines()
+            if "(" in line
+        )
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("Only the original user can edit this bet.", ephemeral=True)
+            return
+        selections = [line.strip() for line in self.selections.value.splitlines() if line.strip()]
+        try:
+            odds = [play_service.normalize_odds(line) for line in self.odds.value.splitlines() if line.strip()]
+            units = float(self.units.value)
+            updated = await asyncio.to_thread(
+                official_play_service.edit_play_record,
+                self.play_id,
+                units,
+                self.team.value,
+                selections,
+                odds,
+                self.notes.value,
+            )
+            await interaction.response.edit_message(content=f"Bet {self.play_id} updated.", embed=None, view=None)
+            self.stop()
+        except (ValueError, TypeError) as exc:
+            await interaction.response.send_message(f"Could not update bet: {exc}", ephemeral=True)
+
+
+class EditBetView(discord.ui.View):
+    def __init__(self, play_id: int, owner_id: int, payload: dict):
+        super().__init__(timeout=900)
+        self.play_id = play_id
+        self.owner_id = owner_id
+        self.payload = payload
+
+    @discord.ui.button(label="Edit bet", style=discord.ButtonStyle.secondary)
+    async def edit_bet(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("Only the original user can edit this bet.", ephemeral=True)
+            return
+        await interaction.response.send_modal(EditBetModal(self.play_id, self.owner_id, self.payload))
 
 
 class TestUnitsModal(discord.ui.Modal, title="Enter Units for Image Test"):
