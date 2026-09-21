@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 import requests
@@ -32,10 +33,13 @@ class ImagePlayService:
             raise RuntimeError("No vision provider is configured.")
 
         for name, url, api_key, model in providers:
-            try:
-                return self._extract_with_provider(image_url, name, url, api_key, model)
-            except Exception as exc:
-                errors.append(f"{name}: {exc}")
+            for attempt in range(2):
+                try:
+                    return self._extract_with_provider(image_url, name, url, api_key, model)
+                except Exception as exc:
+                    errors.append(f"{name} attempt {attempt + 1}: {exc}")
+                    if attempt == 0:
+                        time.sleep(1)
 
         raise RuntimeError("All vision providers failed or blocked the image. " + " | ".join(errors))
 
@@ -54,7 +58,8 @@ class ImagePlayService:
             timeout=60,
         )
         if response.status_code in {400, 403, 408, 429} or response.status_code >= 500:
-            raise RuntimeError(f"provider response {response.status_code}")
+            detail = response.text[:300].replace("\n", " ")
+            raise RuntimeError(f"provider response {response.status_code}: {detail}")
         response.raise_for_status()
         body = response.json()
         choice = (body.get("choices") or [{}])[0]
@@ -64,6 +69,11 @@ class ImagePlayService:
         content = (choice.get("message") or {}).get("content")
         if not content:
             raise RuntimeError("provider returned no content")
+        if isinstance(content, list):
+            content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
+        content = str(content).strip()
+        if content.startswith("```"):
+            content = content.removeprefix("```").removeprefix("json").removesuffix("```").strip()
         parsed = json.loads(content)
         self._validate(parsed)
         return parsed
