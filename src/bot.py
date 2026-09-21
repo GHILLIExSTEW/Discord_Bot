@@ -15,25 +15,23 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+class OfficialBot(commands.Bot):
+    async def setup_hook(self) -> None:
+        if GUILD_ID:
+            guild = discord.Object(id=GUILD_ID)
+            self.tree.copy_global_to(guild=guild)
+            synced = await self.tree.sync(guild=guild)
+            print(f"Synced guild commands: {', '.join(command.name for command in synced)}")
+        else:
+            synced = await self.tree.sync()
+            print(f"Synced global commands: {', '.join(command.name for command in synced)}")
+
+
+bot = OfficialBot(command_prefix="!", intents=intents, application_id=APPLICATION_ID)
 official_play_service = OfficialPlayService()
 team_ranking_service = TeamRankingService()
 team_summary_service = TeamSummaryService()
 team_management_service = TeamManagementService()
-
-
-async def setup_hook() -> None:
-    if GUILD_ID:
-        guild = discord.Object(id=GUILD_ID)
-        bot.tree.copy_global_to(guild=guild)
-        synced = await bot.tree.sync(guild=guild)
-        print(f"Synced guild commands: {', '.join(command.name for command in synced)}")
-    else:
-        synced = await bot.tree.sync()
-        print(f"Synced global commands: {', '.join(command.name for command in synced)}")
-
-
-bot.setup_hook = setup_hook
 
 
 @bot.event
