@@ -26,7 +26,9 @@ team_management_service = TeamManagementService()
 async def on_ready():
     print(f"Logged in as {bot.user}")
     if GUILD_ID:
-        await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
+        guild = discord.Object(id=GUILD_ID)
+        bot.tree.copy_global_to(guild=guild)
+        await bot.tree.sync(guild=guild)
     else:
         await bot.tree.sync()
     asyncio.create_task(RosterSyncService().run_annually())
