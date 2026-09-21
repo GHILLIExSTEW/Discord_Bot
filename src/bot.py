@@ -332,6 +332,58 @@ class ConfirmImageView(discord.ui.View):
         self.stop()
 
 
+class TestUnitsModal(discord.ui.Modal, title="Enter Units for Image Test"):
+    units = discord.ui.TextInput(label="Units", placeholder="Example: 2", required=True, max_length=20)
+
+    def __init__(self, parsed: dict):
+        super().__init__()
+        self.parsed = parsed
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        try:
+            units = float(self.units.value)
+            if units <= 0:
+                raise ValueError
+        except ValueError:
+            await interaction.response.send_message("Units must be a number greater than zero.", ephemeral=True)
+            return
+        self.parsed["units"] = units
+        await interaction.response.edit_message(embed=build_image_test_embed(self.parsed), view=None)
+
+
+class TestImageView(discord.ui.View):
+    def __init__(self, parsed: dict):
+        super().__init__(timeout=900)
+        self.parsed = parsed
+        if parsed.get("units") is not None:
+            self.clear_items()
+
+    @discord.ui.button(label="Enter units", style=discord.ButtonStyle.primary)
+    async def enter_units(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await interaction.response.send_modal(TestUnitsModal(self.parsed))
+
+
+def build_image_test_embed(parsed: dict) -> discord.Embed:
+    legs = parsed["legs"]
+    odds = play_service.combine_american_odds([int(leg["odds"]) for leg in legs])
+    embed = discord.Embed(
+        title="Image Test Result",
+        description="This image was parsed successfully. Nothing was recorded.",
+        color=discord.Color.blue(),
+    )
+    embed.add_field(name="Units", value=str(parsed.get("units") or "Not visible"), inline=True)
+    embed.add_field(name="Legs", value=str(len(legs)), inline=True)
+    embed.add_field(name="Combined odds", value=f"{odds:+d}", inline=True)
+    embed.add_field(
+        name="Selections",
+        value="\n".join(f"{index}. {leg['selection']} ({int(leg['odds']):+d})" for index, leg in enumerate(legs, start=1))[:1024],
+        inline=False,
+    )
+    if parsed.get("team_name"):
+        embed.set_footer(text=f"Team: {parsed['team_name']}")
+    return embed
+
+
 @bot.tree.command(name="importimage", description="Read a betting slip image and prepare an official play")
 @discord.app_commands.describe(image="Betting slip or play screenshot")
 async def import_image_command(interaction: discord.Interaction, image: discord.Attachment):
@@ -404,24 +456,7 @@ async def test_command(interaction: discord.Interaction, image: discord.Attachme
         await interaction.response.defer(ephemeral=True)
         try:
             parsed = await asyncio.to_thread(image_play_service.extract_play, image.url)
-            legs = parsed["legs"]
-            odds = play_service.combine_american_odds([int(leg["odds"]) for leg in legs])
-            embed = discord.Embed(
-                title="Image Test Result",
-                description="This image was parsed successfully. Nothing was recorded.",
-                color=discord.Color.blue(),
-            )
-            embed.add_field(name="Units", value=str(parsed["units"]), inline=True)
-            embed.add_field(name="Legs", value=str(len(legs)), inline=True)
-            embed.add_field(name="Combined odds", value=f"{odds:+d}", inline=True)
-            embed.add_field(
-                name="Selections",
-                value="\n".join(f"{index}. {leg['selection']} ({int(leg['odds']):+d})" for index, leg in enumerate(legs, start=1))[:1024],
-                inline=False,
-            )
-            if parsed.get("team_name"):
-                embed.set_footer(text=f"Team: {parsed['team_name']}")
-            await interaction.followup.send(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=build_image_test_embed(parsed), view=TestImageView(parsed), ephemeral=True)
         except Exception as exc:
             logger.exception("test_image_failed interaction=%s", interaction.id)
             await interaction.followup.send(f"Image test failed: {exc}", ephemeral=True)

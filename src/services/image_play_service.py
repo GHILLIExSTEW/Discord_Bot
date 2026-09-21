@@ -80,13 +80,16 @@ class ImagePlayService:
 
     @staticmethod
     def _validate(data: dict[str, Any]) -> None:
-        try:
-            units = float(data.get("units"))
-        except (TypeError, ValueError):
-            units = 0
-        if units <= 0:
-            raise ValueError("The image reader could not find valid units.")
-        data["units"] = units
+        if data.get("units") in {None, "", "unknown", "Unknown"}:
+            data["units"] = None
+        else:
+            try:
+                units = float(data.get("units"))
+            except (TypeError, ValueError):
+                units = 0
+            if units <= 0:
+                raise ValueError("The image reader returned invalid units.")
+            data["units"] = units
         legs = data.get("legs")
         if not isinstance(legs, list) or not 1 <= len(legs) <= 10:
             raise ValueError("The image reader could not find 1-10 legs.")
