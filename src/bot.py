@@ -122,21 +122,49 @@ class LegModal(discord.ui.Modal):
         self.collected.append(f"Leg {self.leg_number}: {self.leg_details.value.strip()}")
         logger.info("leg_modal_submit interaction=%s leg=%s/%s", interaction.id, self.leg_number, self.legs)
         if self.leg_number < self.legs:
-            await interaction.response.send_modal(LegModal(
-                self.units,
-                self.legs,
-                self.odds,
-                self.team_name,
-                self.notes,
-                self.leg_number + 1,
-                self.collected,
-            ))
+            await interaction.response.send_message(
+                f"Leg {self.leg_number} saved. Continue with leg {self.leg_number + 1}.",
+                ephemeral=True,
+                view=LegEntryView(
+                    self.units,
+                    self.legs,
+                    self.odds,
+                    self.team_name,
+                    self.notes,
+                    self.leg_number + 1,
+                    self.collected,
+                ),
+            )
             return
 
         combined = "\n".join(self.collected)
         if self.notes.strip():
             combined = f"{combined}\n\nNotes: {self.notes.strip()}"
         await record_modal_play(interaction, self.units, self.legs, self.odds, self.team_name, combined)
+
+
+class LegEntryView(discord.ui.View):
+    def __init__(self, units: float, legs: int, odds: str, team_name: str, notes: str, leg_number: int, collected: list[str]):
+        super().__init__(timeout=900)
+        self.units = units
+        self.legs = legs
+        self.odds = odds
+        self.team_name = team_name
+        self.notes = notes
+        self.leg_number = leg_number
+        self.collected = collected
+
+    @discord.ui.button(label="Enter next leg", style=discord.ButtonStyle.primary)
+    async def enter_next_leg(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await interaction.response.send_modal(LegModal(
+                self.units,
+                self.legs,
+                self.odds,
+                self.team_name,
+                self.notes,
+                self.leg_number,
+                self.collected,
+            ))
 
 
 class PlayModal(discord.ui.Modal, title="Record Official Play"):
@@ -161,15 +189,19 @@ class PlayModal(discord.ui.Modal, title="Record Official Play"):
             return
 
         if legs > 1:
-            await interaction.response.send_modal(LegModal(
-                units,
-                legs,
-                self.odds.value,
-                self.team_name.value,
-                self.play_text.value,
-                1,
-                [],
-            ))
+            await interaction.response.send_message(
+                "Start entering the legs one at a time.",
+                ephemeral=True,
+                view=LegEntryView(
+                    units,
+                    legs,
+                    self.odds.value,
+                    self.team_name.value,
+                    self.play_text.value,
+                    1,
+                    [],
+                ),
+            )
             return
 
         await record_modal_play(
