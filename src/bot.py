@@ -141,7 +141,7 @@ async def on_message(message: discord.Message):
         parsed = await asyncio.to_thread(image_play_service.extract_play, image.url)
         await message.channel.send(
             f"{message.author.mention}, image received. Click **Review image** to continue privately.",
-            view=AutoImageView(message.author.id, parsed),
+            view=AutoImageView(message.author.id, parsed, message.id),
         )
     except Exception as exc:
         logger.exception("automatic_image_extract_failed message=%s", message.id)
@@ -370,9 +370,10 @@ class PlayModal(discord.ui.Modal, title="Record Official Play"):
 
 
 class ConfirmImageView(discord.ui.View):
-    def __init__(self, parsed: dict):
+    def __init__(self, parsed: dict, source_message_id: int | None = None):
         super().__init__(timeout=900)
         self.parsed = parsed
+        self.source_message_id = source_message_id
 
     @discord.ui.button(label="Confirm and record", style=discord.ButtonStyle.success)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
@@ -394,9 +395,16 @@ class ConfirmImageView(discord.ui.View):
             if payload.get("error"):
                 await interaction.followup.send(payload["error"], ephemeral=True)
                 return
-            message = await publish_play_webhook(interaction, payload)
-            await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
-            await interaction.followup.send(f"Play {payload['play_id']} recorded.", ephemeral=True)
+            if self.source_message_id is None:
+                message = await publish_play_webhook(interaction, payload)
+                await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
+            else:
+                await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], self.source_message_id)
+            await interaction.edit_original_response(
+                content=f"Play {payload['play_id']} recorded from the original image.",
+                embed=None,
+                view=None,
+            )
             self.stop()
         except Exception as exc:
             logger.exception("image_play_confirm_failed interaction=%s", interaction.id)
@@ -486,10 +494,11 @@ def build_image_review_embed(parsed: dict) -> discord.Embed:
 class AutoUnitsModal(discord.ui.Modal, title="Enter Units"):
     units = discord.ui.TextInput(label="Units risked", placeholder="Example: 2", required=True, max_length=20)
 
-    def __init__(self, owner_id: int, parsed: dict):
+    def __init__(self, owner_id: int, parsed: dict, source_message_id: int):
         super().__init__()
         self.owner_id = owner_id
         self.parsed = parsed
+        self.source_message_id = source_message_id
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         if interaction.user.id != self.owner_id:
@@ -506,16 +515,17 @@ class AutoUnitsModal(discord.ui.Modal, title="Enter Units"):
         await interaction.response.send_message(
             content="Review the detected play before recording it:",
             embed=build_image_review_embed(self.parsed),
-            view=ConfirmImageView(self.parsed),
+            view=ConfirmImageView(self.parsed, self.source_message_id),
             ephemeral=True,
         )
 
 
 class AutoImageView(discord.ui.View):
-    def __init__(self, owner_id: int, parsed: dict):
+    def __init__(self, owner_id: int, parsed: dict, source_message_id: int):
         super().__init__(timeout=900)
         self.owner_id = owner_id
         self.parsed = parsed
+        self.source_message_id = source_message_id
 
     @discord.ui.button(label="Review image", style=discord.ButtonStyle.primary)
     async def review_image(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
@@ -523,12 +533,12 @@ class AutoImageView(discord.ui.View):
             await interaction.response.send_message("Only the original uploader can review this image.", ephemeral=True)
             return
         if self.parsed.get("units") is None:
-            await interaction.response.send_modal(AutoUnitsModal(self.owner_id, self.parsed))
+            await interaction.response.send_modal(AutoUnitsModal(self.owner_id, self.parsed, self.source_message_id))
         else:
             await interaction.response.send_message(
                 content="Review the detected play before recording it:",
                 embed=build_image_review_embed(self.parsed),
-                view=ConfirmImageView(self.parsed),
+                view=ConfirmImageView(self.parsed, self.source_message_id),
                 ephemeral=True,
             )
         button.disabled = True
