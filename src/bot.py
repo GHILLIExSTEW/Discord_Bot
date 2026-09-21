@@ -852,15 +852,9 @@ async def summary_command(interaction: discord.Interaction):
     await interaction.followup.send(embed=top_embed, ephemeral=False)
 
 
-update_group = discord.app_commands.Group(name="update", description="Update tracking embeds")
-
-
-@update_group.command(name="tracker", description="Refresh the Unit Summary and Top Playmakers embeds")
+@bot.tree.command(name="update_tracker", description="Refresh the Unit Summary and Top Playmakers embeds")
 async def update_tracker_command(interaction: discord.Interaction):
     await summary_command(interaction)
-
-
-bot.tree.add_command(update_group)
 
 
 async def main() -> None:
