@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUTPUT = ROOT / "Playmaker_Picks_User_Guide.pdf"
 
 pdfmetrics.registerFont(TTFont("SegoeUI", r"C:\Windows\Fonts\segoeui.ttf"))
-pdfmetrics.registerFont(TTFont("SegoeUISymbol", r"C:\Windows\Fonts\seguisym.ttf"))
+pdfmetrics.registerFont(TTFont("SegoeUIEmoji", r"C:\Windows\Fonts\seguiemj.ttf"))
 
 styles = getSampleStyleSheet()
 styles.add(ParagraphStyle(
@@ -37,7 +37,7 @@ styles.add(ParagraphStyle(
     leading=11, textColor=colors.HexColor("#52606d"),
 ))
 styles.add(ParagraphStyle(
-    name="Icon", parent=styles["BodyText"], fontName="SegoeUISymbol", fontSize=16,
+    name="Icon", parent=styles["BodyText"], fontName="SegoeUIEmoji", fontSize=16,
     leading=18, textColor=colors.HexColor("#0b7285"), alignment=TA_CENTER,
 ))
 
