@@ -854,7 +854,7 @@ async def summary_command(interaction: discord.Interaction):
 
 @bot.tree.command(name="update_tracker", description="Refresh the Unit Summary and Top Playmakers embeds")
 async def update_tracker_command(interaction: discord.Interaction):
-    await summary_command(interaction)
+    await summary_command.callback(interaction)
 
 
 async def main() -> None:
