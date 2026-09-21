@@ -808,21 +808,44 @@ async def summary_command(interaction: discord.Interaction):
         return
 
     try:
-        total_rows = team_summary_service.build_daily_summary()
+        report = team_summary_service.build_playmaker_report()
     except RuntimeError:
         await interaction.response.send_message("Supabase is not configured for summary generation.", ephemeral=True)
         return
 
-    rows = team_summary_service.fetch_daily_summary()
-    embed = discord.Embed(title="Daily Team Summary", color=discord.Color.green())
-    if not rows:
-        embed.description = "No team summary records created yet."
-    else:
-        lines = []
-        for item in rows[:10]:
-            lines.append(f"Team {item['team_id']} — {float(item.get('net_units', 0)):+.2f}u | W{item['wins']} L{item['losses']} V{item['voids']} P{item['partials']}")
-        embed.description = "\n".join(lines)
-    embed.set_footer(text=f"Rows processed: {total_rows}")
+    periods = report["periods"]
+    daily = periods["daily"]
+    all_time = periods["all_time"]
+    embed = discord.Embed(
+        title="Playmaker Picks | Unit Summary",
+        description=f"Results for **{report['date']}**",
+        color=discord.Color.green(),
+    )
+    embed.add_field(name="📉 Daily Results", value=f"Net\n**{daily['net']:+g} units**", inline=True)
+    embed.add_field(name="✅ Wins", value=f"+{daily['win_units']:g} units", inline=True)
+    embed.add_field(name="❌ Losses", value=f"-{daily['loss_units']:g} units", inline=True)
+    embed.add_field(name="📋 Results", value=str(daily["results"]), inline=True)
+    embed.add_field(name="⏳ Pending", value=f"{report['pending']} bets", inline=True)
+    embed.add_field(name="📊 Period Totals", value=(
+        f"📈 **7-Day**\n**{periods['seven_day']['net']:+g} units**\n\n"
+        f"🔄 **Month-to-Date**\n**{periods['month']['net']:+g} units**\n\n"
+        f"🏆 **Year-to-Date**\n**{periods['year']['net']:+g} units**"
+    ), inline=False)
+    embed.add_field(name="🏆 All-Time Summary", value=(
+        f"Net\n**{all_time['net']:+g} units**\n\n"
+        f"✅ Wins\n+{all_time['win_units']:g} units\n\n❌ Losses\n-{all_time['loss_units']:g} units\n\n📋 Results\n{all_time['results']}"
+    ), inline=False)
+    top_lines = []
+    breakdown = []
+    medals = ["🥇", "🥈", "🥉"]
+    for index, (name, data) in enumerate(report["playmakers"][:3]):
+        medal = medals[index] if index < len(medals) else "🏅"
+        top_lines.append(f"{medal} **{name}** — **{data['net']:+g} units**\n{data['wins']}-{data['losses']} record | {data['rate']}% win rate")
+    for name, data in report["playmakers"]:
+        breakdown.append(f"**{name}**\nRecord: {data['wins']}-{data['losses']} ({data['rate']}% win rate)")
+    embed.add_field(name="🏅 Top Playmakers", value="\n".join(top_lines) or "No settled plays yet.", inline=False)
+    embed.add_field(name="Playmaker Breakdown", value="\n".join(breakdown)[:1024] or "No settled plays yet.", inline=False)
+    embed.set_footer(text="Updated on request")
     await interaction.response.send_message(embed=embed, ephemeral=False)
 
 
