@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import discord
 from discord.ext import commands
@@ -10,6 +11,9 @@ from src.services.team_admin_service import team_admin_service
 from src.services.team_management_service import TeamManagementService
 from src.services.team_ranking_service import TeamRankingService
 from src.services.team_summary_service import TeamSummaryService
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger("official_play_bot")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -48,15 +52,20 @@ class PlayModal(discord.ui.Modal, title="Record Official Play"):
     play_text = discord.ui.TextInput(label="Notes (optional)", style=discord.TextStyle.paragraph, required=False, max_length=1000)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
+        logger.info("play_modal_submit interaction=%s user=%s channel=%s", interaction.id, interaction.user.id, interaction.channel_id)
         try:
             units = float(self.units.value)
             legs = int(self.legs.value)
         except ValueError:
+            logger.warning("play_modal_invalid_numbers interaction=%s", interaction.id)
             await interaction.response.send_message("Units must be a number and legs must be a whole number.", ephemeral=True)
             return
 
+        logger.info("play_modal_defer interaction=%s units=%s legs=%s odds=%s team=%s", interaction.id, units, legs, self.odds.value, self.team_name.value or "<none>")
         await interaction.response.defer()
+        logger.info("play_modal_deferred interaction=%s", interaction.id)
         try:
+            logger.info("play_db_start interaction=%s", interaction.id)
             payload = await asyncio.to_thread(
                 official_play_service.create_play_record,
                 discord_user_id=str(interaction.user.id),
@@ -67,11 +76,14 @@ class PlayModal(discord.ui.Modal, title="Record Official Play"):
                 team_name=self.team_name.value,
                 play_text=self.play_text.value,
             )
+            logger.info("play_db_complete interaction=%s play_id=%s error=%s", interaction.id, payload.get("play_id"), bool(payload.get("error")))
         except Exception as exc:
+            logger.exception("play_db_failed interaction=%s", interaction.id)
             await interaction.followup.send(f"Could not record the play: {exc}", ephemeral=True)
             return
 
         if payload.get("error"):
+            logger.warning("play_validation_failed interaction=%s error=%s", interaction.id, payload["error"])
             await interaction.followup.send(payload["error"], ephemeral=True)
             return
 
@@ -86,25 +98,34 @@ class PlayModal(discord.ui.Modal, title="Record Official Play"):
         if payload.get("play_text"):
             embed.add_field(name="Notes", value=payload["play_text"][:1024], inline=False)
 
+        logger.info("play_followup_start interaction=%s", interaction.id)
         message = await interaction.followup.send(embed=embed, wait=True)
+        logger.info("play_followup_complete interaction=%s message_id=%s", interaction.id, message.id)
         await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
+        logger.info("play_complete interaction=%s play_id=%s", interaction.id, payload["play_id"])
 
 
 @bot.tree.command(name="play", description="Open the official play entry form")
 async def play_command(interaction: discord.Interaction):
+    logger.info("play_command_received interaction=%s user=%s channel=%s", interaction.id, interaction.user.id, interaction.channel_id)
     if not interaction.guild:
+        logger.warning("play_rejected_no_guild interaction=%s", interaction.id)
         await interaction.response.send_message("This command can only be used in a guild.", ephemeral=True)
         return
 
     if OFFICIAL_ROLE_IDS and not any(role.id in OFFICIAL_ROLE_IDS for role in interaction.user.roles):
+        logger.warning("play_rejected_role interaction=%s user=%s", interaction.id, interaction.user.id)
         await interaction.response.send_message("You do not have permission to log official plays.", ephemeral=True)
         return
 
     if OFFICIAL_CHANNEL_ID and interaction.channel_id != OFFICIAL_CHANNEL_ID:
+        logger.warning("play_rejected_channel interaction=%s channel=%s expected=%s", interaction.id, interaction.channel_id, OFFICIAL_CHANNEL_ID)
         await interaction.response.send_message(f"Use this command in the official channel: <#{OFFICIAL_CHANNEL_ID}>", ephemeral=True)
         return
 
+    logger.info("play_modal_open_start interaction=%s", interaction.id)
     await interaction.response.send_modal(PlayModal())
+    logger.info("play_modal_open_complete interaction=%s", interaction.id)
 
 
 @bot.tree.command(name="settle", description="Settle an official play")
