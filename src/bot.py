@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 import discord
 from discord.ext import commands
 
-from src.config import APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, PARTIAL_REACTION, RESULT_CHANNEL_ID, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, TRACKING_CHANNEL_ID, VOID_REACTION, WIN_REACTION
+from src.config import APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, OPERATOR_ROLE_IDS, PARTIAL_REACTION, RESULT_CHANNEL_ID, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, TRACKING_CHANNEL_ID, VOID_REACTION, WIN_REACTION
 from src.services.official_play_service import OfficialPlayService
 from src.services.supabase_service import supabase_service
 from src.services.team_ranking_service import TeamRankingService
@@ -42,6 +42,7 @@ official_play_service = OfficialPlayService()
 team_ranking_service = TeamRankingService()
 team_summary_service = TeamSummaryService()
 play_service = PlayService()
+testing_enabled = TESTING
 
 
 def build_play_embed(payload: dict) -> discord.Embed:
@@ -206,7 +207,7 @@ async def on_message(message: discord.Message):
     if message.author.bot or not message.guild:
         return
 
-    is_test_channel = TESTING and TEST_CHANNEL_ID and message.channel.id == TEST_CHANNEL_ID
+    is_test_channel = testing_enabled and TEST_CHANNEL_ID and message.channel.id == TEST_CHANNEL_ID
     if is_test_channel:
         image = next((attachment for attachment in message.attachments if (attachment.content_type or "").startswith("image/")), None)
         if image is None:
@@ -829,6 +830,20 @@ async def test_command(interaction: discord.Interaction, image: discord.Attachme
         marker = "PASS" if check["passed"] else "FAIL"
         embed.add_field(name=f"{marker} • {check['name']}", value=check["detail"][:1024], inline=False)
     await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@bot.tree.command(name="testing", description="Enable or disable the image test channel")
+@discord.app_commands.describe(enabled="True enables test mode; false disables it")
+async def testing_command(interaction: discord.Interaction, enabled: bool):
+    global testing_enabled
+    is_operator = any(role.id in OPERATOR_ROLE_IDS for role in getattr(interaction.user, "roles", []))
+    is_manager = bool(interaction.guild and interaction.user.guild_permissions.manage_guild)
+    if not (is_operator or is_manager):
+        await interaction.response.send_message("Only operators or server managers can change testing mode.", ephemeral=True)
+        return
+    testing_enabled = enabled
+    state = "enabled" if enabled else "disabled"
+    await interaction.response.send_message(f"Image testing is now **{state}**.", ephemeral=True)
     logger.info("play_modal_open_complete interaction=%s", interaction.id)
 
 
