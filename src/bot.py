@@ -7,7 +7,6 @@ from discord.ext import commands
 
 from src.config import APPLICATION_ID, DISCORD_TOKEN, GUILD_ID, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, TEAM_STATS_CHANNEL_ID
 from src.services.official_play_service import OfficialPlayService
-from src.services.roster_sync_service import RosterSyncService
 from src.services.team_admin_service import team_admin_service
 from src.services.team_management_service import TeamManagementService
 from src.services.team_ranking_service import TeamRankingService
@@ -74,7 +73,6 @@ async def publish_play_webhook(interaction: discord.Interaction, payload: dict) 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
-    asyncio.create_task(RosterSyncService().run_annually())
 
 
 async def record_modal_play(
