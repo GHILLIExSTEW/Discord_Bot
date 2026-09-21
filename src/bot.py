@@ -557,6 +557,7 @@ async def import_image_command(interaction: discord.Interaction, image: discord.
     await interaction.followup.send(embed=embed, content="Review the detected play before recording it:", view=ConfirmImageView(parsed), ephemeral=True)
 
 
+@bot.tree.command(name="play", description="Record a play manually without an image")
 async def play_command(interaction: discord.Interaction):
     logger.info("play_command_received interaction=%s user=%s channel=%s", interaction.id, interaction.user.id, interaction.channel_id)
     if not interaction.guild:
@@ -591,7 +592,7 @@ async def test_command(interaction: discord.Interaction, image: discord.Attachme
             return
         await interaction.response.defer(ephemeral=True)
         try:
-            parsed = await asyncio.to_thread(image_play_service.extract_play, image.url, message.content)
+            parsed = await asyncio.to_thread(image_play_service.extract_play, image.url)
             await interaction.followup.send(embed=build_image_test_embed(parsed), view=TestImageView(parsed), ephemeral=True)
         except Exception as exc:
             logger.exception("test_image_failed interaction=%s", interaction.id)
