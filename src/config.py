@@ -48,7 +48,6 @@ TEST_CHANNEL_ID = get_int("TEST_CHANNEL_ID")
 TESTING = get_bool("TESTING", False)
 TEAM_STATS_CHANNEL_ID = get_int("TEAM_STATS_CHANNEL_ID")
 RESULT_CHANNEL_ID = get_int("RESULT_CHANNEL_ID")
-MONITORED_CHANNEL_ID = get_int("MONITORED_CHANNEL_ID")
 
 OFFICIAL_ROLE_IDS = {
     int(role_id.strip())
@@ -65,9 +64,6 @@ OPERATOR_ROLE_IDS = {
     if role_id.strip().isdigit()
 }
 
-TIMEZONE = get_str("TIMEZONE", "America/New_York")
-
-
 def parse_csv_values(name: str) -> list[str]:
     raw = os.getenv(name, "")
     return [item.strip() for item in raw.split(",") if item.strip()]
@@ -79,8 +75,3 @@ if not OPENAI_VISION_MODELS:
 
 
 
-DEFAULT_CONFIG = {
-    "timezone": TIMEZONE,
-    "tracked_user_ids": [],
-    "allowed_channel_ids": [],
-}

@@ -12,7 +12,6 @@ from src.config import APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, G
 from src.services.official_play_service import OfficialPlayService
 from src.services.supabase_service import supabase_service
 from src.services.team_ranking_service import TeamRankingService
-from src.services.team_summary_service import TeamSummaryService
 from src.services.play_service import PlayService
 from src.services.image_play_service import image_play_service
 from src.services.diagnostic_service import diagnostic_service
@@ -40,7 +39,6 @@ class OfficialBot(commands.Bot):
 bot = OfficialBot(command_prefix="!", intents=intents, application_id=APPLICATION_ID)
 official_play_service = OfficialPlayService()
 team_ranking_service = TeamRankingService()
-team_summary_service = TeamSummaryService()
 play_service = PlayService()
 testing_enabled = TESTING
 
