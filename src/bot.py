@@ -41,6 +41,12 @@ official_play_service = OfficialPlayService()
 team_ranking_service = TeamRankingService()
 play_service = PlayService()
 testing_enabled = TESTING
+REACTION_RESULTS = {
+    WIN_REACTION: "win",
+    LOSS_REACTION: "loss",
+    VOID_REACTION: "void",
+    PARTIAL_REACTION: "partial",
+}
 
 
 def build_play_embed(payload: dict) -> discord.Embed:
@@ -86,9 +92,49 @@ def fetch_official_tracker_rows() -> tuple[list[dict], list[dict]]:
             offset += 1000
 
     return (
-        fetch("plays", "id,user_id,units,status,created_at,settled_at"),
-        fetch("users", "id,display_name,username"),
+        fetch("plays", "id,user_id,units,status,message_id,created_at,settled_at"),
+        fetch("users", "id,discord_user_id,display_name,username"),
     )
+
+
+async def reconcile_open_play_reactions(plays: list[dict], users: list[dict], channels: list) -> int:
+    discord_user_ids = {str(user["id"]): str(user.get("discord_user_id")) for user in users}
+    settled_count = 0
+
+    for play in plays:
+        if play.get("status") != "open" or not play.get("message_id"):
+            continue
+        owner_id = discord_user_ids.get(str(play["user_id"]))
+        if not owner_id or owner_id == "None":
+            continue
+
+        message = None
+        for channel in channels:
+            try:
+                message = await channel.fetch_message(int(play["message_id"]))
+                break
+            except (discord.NotFound, discord.Forbidden):
+                continue
+        if message is None:
+            continue
+
+        result = None
+        for reaction in message.reactions:
+            reaction_result = REACTION_RESULTS.get(str(reaction.emoji))
+            if reaction_result is None or reaction_result == "partial":
+                continue
+            async for reaction_user in reaction.users():
+                if str(reaction_user.id) == owner_id:
+                    result = reaction_result
+                    break
+            if result:
+                break
+
+        if result:
+            await asyncio.to_thread(official_play_service.settle_play, int(play["id"]), result)
+            settled_count += 1
+
+    return settled_count
 
 
 def parse_tracker_time(value: str, timezone_name: str) -> datetime:
@@ -185,12 +231,7 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     if payload.user_id == bot.user.id:
         return
 
-    result = {
-        WIN_REACTION: "win",
-        LOSS_REACTION: "loss",
-        VOID_REACTION: "void",
-        PARTIAL_REACTION: "partial",
-    }.get(str(payload.emoji))
+    result = REACTION_RESULTS.get(str(payload.emoji))
     if result is None:
         return
 
@@ -977,6 +1018,13 @@ async def update_tracker_command(interaction: discord.Interaction):
     try:
         await interaction.response.defer(ephemeral=True)
         plays, users = await asyncio.to_thread(fetch_official_tracker_rows)
+        reaction_channels = []
+        for channel_id in dict.fromkeys((OFFICIAL_CHANNEL_ID, IMAGE_INPUT_CHANNEL_ID)):
+            if channel_id:
+                reaction_channels.append(bot.get_channel(channel_id) or await bot.fetch_channel(channel_id))
+        reconciled = await reconcile_open_play_reactions(plays, users, reaction_channels)
+        if reconciled:
+            plays, users = await asyncio.to_thread(fetch_official_tracker_rows)
         tracker_embed, top_lines = build_official_tracker_embed(plays, users)
         if not RESULT_CHANNEL_ID:
             await interaction.followup.send("RESULT_CHANNEL_ID is not configured.", ephemeral=True)
@@ -997,7 +1045,7 @@ async def update_tracker_command(interaction: discord.Interaction):
             top_embed = discord.Embed(title="Top Playmakers", color=discord.Color.gold())
             top_embed.description = "\n\n".join(top_lines) or "No settled results yet."
             await team_channel.send(embed=top_embed)
-        await interaction.followup.send("Tracker updated.", ephemeral=True)
+        await interaction.followup.send(f"Tracker updated. Reconciled {reconciled} result(s).", ephemeral=True)
     except Exception as exc:
         logger.exception("official_tracker_update_failed")
         if interaction.response.is_done():
