@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from src.services.play_service import PlayService
 from src.services.settlement_service import SettlementService
 from src.services.supabase_service import supabase_service
@@ -168,7 +170,7 @@ class OfficialPlayService:
         tally = self.settlement_service.tally_for_result(result, float(self._fetch_play(play_id)["units"]))
         supabase_service.update(
             "plays",
-            {"status": result, "settled_at": "now()", "settled_units": tally},
+            {"status": result, "settled_at": datetime.now(timezone.utc).isoformat()},
             {"id": int(play_id)},
         )
         return {"result": result, "tally": tally}
