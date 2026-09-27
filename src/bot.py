@@ -251,7 +251,7 @@ def build_official_tracker_embed(plays: list[dict], users: list[dict], now: date
     pending_label = "bet" if len(pending) == 1 else "bets"
     embed.add_field(
         name="Today",
-        value=f"**Net** {net(daily):+g}u\n✅ +{win_units:g}u · ❌ -{loss_units:g}u\n**Record** {daily_wins}-{daily_losses} · {len(daily)} settled\n**Pending** {len(pending)} {pending_label}",
+        value=f"**Net** {net(daily):+g}u\n\n✅ +{win_units:g}u · ❌ -{loss_units:g}u\n\n**Record** {daily_wins}-{daily_losses} · {len(daily)} settled\n\n**Pending** {len(pending)} {pending_label}",
         inline=True,
     )
     seven_day_net = net([play for play in settled if in_period(play, now - timedelta(days=6))])
@@ -259,19 +259,19 @@ def build_official_tracker_embed(plays: list[dict], users: list[dict], now: date
     year_net = net([play for play in settled if in_period(play, year_start)])
     embed.add_field(
         name="Periods",
-        value=f"**7D** {seven_day_net:+g}u\n**MTD** {month_net:+g}u\n**YTD** {year_net:+g}u",
+        value=f"**7D** {seven_day_net:+g}u\n\n**MTD** {month_net:+g}u\n\n**YTD** {year_net:+g}u",
         inline=True,
     )
     all_time_wins = sum(play.get("status") == "win" for play in settled)
     all_time_losses = sum(play.get("status") == "loss" for play in settled)
     embed.add_field(
         name="All Time",
-        value=f"**Net** {net(settled):+g}u\n✅ +{all_wins:g}u · ❌ -{all_losses:g}u\n**Record** {all_time_wins}-{all_time_losses} · {len(settled)} settled",
+        value=f"**Net** {net(settled):+g}u\n\n✅ +{all_wins:g}u · ❌ -{all_losses:g}u\n\n**Record** {all_time_wins}-{all_time_losses} · {len(settled)} settled",
         inline=True,
     )
     embed.add_field(
         name="Playmaker Breakdown",
-        value="\n".join(breakdown)[:1024] or "No settled plays yet.",
+        value="\n\n".join(breakdown)[:1024] or "No settled plays yet.",
         inline=False,
     )
     embed.set_footer(text="Auto-updates hourly • Eastern Time")

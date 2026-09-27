@@ -11,6 +11,7 @@ def test_tracker_uses_only_official_plays_and_settlement_time():
         {"id": 2, "user_id": 1, "units": 2, "status": "loss", "created_at": "2026-09-20T18:00:00+00:00", "settled_at": "2026-09-21T15:00:00+00:00"},
         {"id": 3, "user_id": 2, "units": 5, "status": "open", "created_at": "2026-09-21T15:00:00+00:00", "settled_at": None},
         {"id": 4, "user_id": 2, "units": 1, "status": "void", "created_at": "2026-09-20T18:00:00+00:00", "settled_at": "2026-09-21T15:00:00+00:00"},
+        {"id": 5, "user_id": 2, "units": 1, "status": "win", "created_at": "2026-09-19T18:00:00+00:00", "settled_at": "2026-09-20T19:00:00+00:00"},
     ]
     users = [{"id": 1, "display_name": "MoneyPicks", "username": "money"}, {"id": 2, "display_name": "Lady4", "username": "lady"}]
 
@@ -22,5 +23,6 @@ def test_tracker_uses_only_official_plays_and_settlement_time():
     assert [field.name for field in embed.fields] == ["Today", "Periods", "All Time", "Playmaker Breakdown"]
     assert "MoneyPicks" in embed.fields[3].value
     assert "1-1" in embed.fields[3].value
-    assert "Lady4" not in embed.fields[3].value
+    assert "Lady4" in embed.fields[3].value
+    assert "\n\n" in embed.fields[3].value
     assert "MoneyPicks" in top_lines[0]
