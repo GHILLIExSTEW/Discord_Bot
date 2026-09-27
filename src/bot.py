@@ -241,22 +241,22 @@ def build_official_tracker_embed(plays: list[dict], users: list[dict], now: date
     embed = discord.Embed(title="Playmaker Picks | Unit Summary", description=f"Results for **{report_date}**", color=discord.Color.green())
     pending_label = "bet" if len(pending) == 1 else "bets"
     embed.add_field(
-        name="Pending Bets",
+        name="⏳ Pending Bets",
         value=f"{len(pending)} {pending_label}",
         inline=True,
     )
     embed.add_field(
-        name="Monthly Units",
+        name="📅 Monthly Units",
         value=f"{net([play for play in settled if in_period(play, month_start)]):+g}u",
         inline=True,
     )
     embed.add_field(
-        name="Yearly Units",
+        name="🗓️ Yearly Units",
         value=f"{net([play for play in settled if in_period(play, year_start)]):+g}u",
         inline=True,
     )
     embed.add_field(
-        name="Playmaker Breakdown",
+        name="🏆 Playmaker Breakdown",
         value="\n\n".join(breakdown)[:1024] or "No settled plays yet.",
         inline=False,
     )
