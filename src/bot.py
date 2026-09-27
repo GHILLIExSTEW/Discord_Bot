@@ -2,11 +2,11 @@ import asyncio
 import logging
 import re
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time as datetime_time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from src.config import APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, OPERATOR_ROLE_IDS, PARTIAL_REACTION, RESULT_CHANNEL_ID, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, TRACKING_CHANNEL_ID, VOID_REACTION, WIN_REACTION
 from src.services.official_play_service import OfficialPlayService
@@ -18,6 +18,8 @@ from src.services.diagnostic_service import diagnostic_service
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("official_play_bot")
+TRACKER_TIMEZONE = ZoneInfo("America/New_York")
+TRACKER_UPDATE_TIMES = [datetime_time(hour=hour, minute=0, tzinfo=TRACKER_TIMEZONE) for hour in range(24)]
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -180,7 +182,7 @@ def parse_tracker_time(value: str, timezone_name: str) -> datetime:
 
 
 def build_official_tracker_embed(plays: list[dict], users: list[dict], now: datetime | None = None) -> tuple[discord.Embed, list[str]]:
-    timezone_name = "America/New_York"
+    timezone_name = TRACKER_TIMEZONE.key
     now = now or datetime.now(ZoneInfo(timezone_name))
     if now.tzinfo is None:
         now = now.replace(tzinfo=ZoneInfo(timezone_name))
@@ -231,7 +233,6 @@ def build_official_tracker_embed(plays: list[dict], users: list[dict], now: date
         reverse=True,
     )
     top_lines = []
-    breakdown = []
     medals = ["🥇", "🥈", "🥉"]
     for index, (user_id, data) in enumerate(ranked):
         total = data["win_count"] + data["loss_count"]
@@ -239,24 +240,89 @@ def build_official_tracker_embed(plays: list[dict], users: list[dict], now: date
         rate = data["win_count"] / total * 100 if total else 0
         if index < 3:
             top_lines.append(f"{medals[index]} **{name}** — **{data['wins'] - data['losses']:+g} units**\n{data['win_count']}-{data['loss_count']} record | {rate:.0f}% win rate")
-        breakdown.append(f"**{name}**\nRecord: {data['win_count']}-{data['loss_count']} ({rate:.0f}% win rate)")
 
     report_date = f"{today.strftime('%B')} {today.day}, {today.year}"
     embed = discord.Embed(title="Playmaker Picks | Unit Summary", description=f"Results for **{report_date}**", color=discord.Color.green())
-    embed.add_field(name="📉 Daily Results", value=f"Net\n**{net(daily):+g} units**\n\n✅ Wins\n+{win_units:g} units\n\n❌ Losses\n-{loss_units:g} units\n\n📋 Results\n{len(daily)}\n\n⏳ Pending\n{len(pending)} bets", inline=True)
+    daily_wins = sum(play.get("status") == "win" for play in daily)
+    daily_losses = sum(play.get("status") == "loss" for play in daily)
+    pending_label = "bet" if len(pending) == 1 else "bets"
+    embed.add_field(
+        name="Today",
+        value=f"**Net** {net(daily):+g}u\n✅ +{win_units:g}u · ❌ -{loss_units:g}u\n**Record** {daily_wins}-{daily_losses} · {len(daily)} settled\n**Pending** {len(pending)} {pending_label}",
+        inline=True,
+    )
     seven_day_net = net([play for play in settled if in_period(play, now - timedelta(days=6))])
     month_net = net([play for play in settled if in_period(play, month_start)])
     year_net = net([play for play in settled if in_period(play, year_start)])
-    embed.add_field(name="📊 Period Totals", value=f"📈 **7-Day**\n**{seven_day_net:+g} units**\n\n🔄 **Month-to-Date**\n**{month_net:+g} units**\n\n🏆 **Year-to-Date**\n**{year_net:+g} units", inline=True)
-    embed.add_field(name="🏆 All-Time Summary", value=f"Net\n**{net(settled):+g} units**\n\n✅ Wins\n+{all_wins:g} units\n\n❌ Losses\n-{all_losses:g} units\n\n📋 Results\n{len(settled)}", inline=True)
-    embed.add_field(name="Playmaker Breakdown", value="\n".join(breakdown)[:1024] or "No settled results yet.", inline=False)
-    embed.set_footer(text="Updated on request")
+    embed.add_field(
+        name="Periods",
+        value=f"**7D** {seven_day_net:+g}u\n**MTD** {month_net:+g}u\n**YTD** {year_net:+g}u",
+        inline=True,
+    )
+    all_time_wins = sum(play.get("status") == "win" for play in settled)
+    all_time_losses = sum(play.get("status") == "loss" for play in settled)
+    embed.add_field(
+        name="All Time",
+        value=f"**Net** {net(settled):+g}u\n✅ +{all_wins:g}u · ❌ -{all_losses:g}u\n**Record** {all_time_wins}-{all_time_losses} · {len(settled)} settled",
+        inline=True,
+    )
+    embed.set_footer(text="Auto-updates hourly • Eastern Time")
     return embed, top_lines
+
+
+async def update_or_post_tracker_embed(channel, embed: discord.Embed) -> None:
+    async for message in channel.history(limit=50):
+        if message.author == bot.user and message.embeds and message.embeds[0].title == embed.title:
+            await message.edit(embed=embed)
+            return
+    await channel.send(embed=embed)
+
+
+async def refresh_tracker_embeds() -> int:
+    if not RESULT_CHANNEL_ID:
+        raise RuntimeError("RESULT_CHANNEL_ID is not configured.")
+
+    plays, users = await asyncio.to_thread(fetch_official_tracker_rows)
+    reaction_channels = []
+    for channel_id in dict.fromkeys((OFFICIAL_CHANNEL_ID, IMAGE_INPUT_CHANNEL_ID)):
+        if channel_id:
+            reaction_channels.append(bot.get_channel(channel_id) or await bot.fetch_channel(channel_id))
+    reconciled = await reconcile_open_play_reactions(plays, users, reaction_channels)
+    if reconciled:
+        plays, users = await asyncio.to_thread(fetch_official_tracker_rows)
+
+    tracker_embed, top_lines = build_official_tracker_embed(plays, users)
+    tracker_channel = bot.get_channel(RESULT_CHANNEL_ID) or await bot.fetch_channel(RESULT_CHANNEL_ID)
+    await update_or_post_tracker_embed(tracker_channel, tracker_embed)
+
+    if TEAM_STATS_CHANNEL_ID:
+        team_channel = bot.get_channel(TEAM_STATS_CHANNEL_ID) or await bot.fetch_channel(TEAM_STATS_CHANNEL_ID)
+        top_embed = discord.Embed(title="Top Playmakers", color=discord.Color.gold())
+        top_embed.description = "\n\n".join(top_lines) or "No settled results yet."
+        await update_or_post_tracker_embed(team_channel, top_embed)
+
+    return reconciled
+
+
+@tasks.loop(time=TRACKER_UPDATE_TIMES)
+async def hourly_tracker_update() -> None:
+    try:
+        reconciled = await refresh_tracker_embeds()
+        logger.info("hourly_tracker_update_complete reconciled=%s", reconciled)
+    except Exception:
+        logger.exception("hourly_tracker_update_failed")
+
+
+@hourly_tracker_update.before_loop
+async def before_hourly_tracker_update() -> None:
+    await bot.wait_until_ready()
 
 
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+    if not hourly_tracker_update.is_running():
+        hourly_tracker_update.start()
 
 
 @bot.event
@@ -1032,34 +1098,10 @@ async def summary_command(interaction: discord.Interaction):
 async def update_tracker_command(interaction: discord.Interaction):
     try:
         await interaction.response.defer(ephemeral=True)
-        plays, users = await asyncio.to_thread(fetch_official_tracker_rows)
-        reaction_channels = []
-        for channel_id in dict.fromkeys((OFFICIAL_CHANNEL_ID, IMAGE_INPUT_CHANNEL_ID)):
-            if channel_id:
-                reaction_channels.append(bot.get_channel(channel_id) or await bot.fetch_channel(channel_id))
-        reconciled = await reconcile_open_play_reactions(plays, users, reaction_channels)
-        if reconciled:
-            plays, users = await asyncio.to_thread(fetch_official_tracker_rows)
-        tracker_embed, top_lines = build_official_tracker_embed(plays, users)
         if not RESULT_CHANNEL_ID:
             await interaction.followup.send("RESULT_CHANNEL_ID is not configured.", ephemeral=True)
             return
-        tracker_channel = bot.get_channel(RESULT_CHANNEL_ID) or await bot.fetch_channel(RESULT_CHANNEL_ID)
-        tracker_message = None
-        async for message in tracker_channel.history(limit=50):
-            if message.author == bot.user and message.embeds and message.embeds[0].title == "Playmaker Picks | Unit Summary":
-                tracker_message = message
-                break
-        if tracker_message:
-            await tracker_message.edit(embed=tracker_embed)
-        else:
-            await tracker_channel.send(embed=tracker_embed)
-
-        if TEAM_STATS_CHANNEL_ID:
-            team_channel = bot.get_channel(TEAM_STATS_CHANNEL_ID) or await bot.fetch_channel(TEAM_STATS_CHANNEL_ID)
-            top_embed = discord.Embed(title="Top Playmakers", color=discord.Color.gold())
-            top_embed.description = "\n\n".join(top_lines) or "No settled results yet."
-            await team_channel.send(embed=top_embed)
+        reconciled = await refresh_tracker_embeds()
         await interaction.followup.send(f"Tracker updated. Reconciled {reconciled} result(s).", ephemeral=True)
     except Exception as exc:
         logger.exception("official_tracker_update_failed")

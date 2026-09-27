@@ -16,9 +16,9 @@ def test_tracker_uses_only_official_plays_and_settlement_time():
 
     embed, top_lines = build_official_tracker_embed(plays, users, now)
 
-    assert "**+1 units**" in embed.fields[0].value
+    assert "**Net** +1u" in embed.fields[0].value
     assert "3" in embed.fields[0].value
-    assert "1 bets" in embed.fields[0].value
-    assert "MoneyPicks" in embed.fields[3].value
-    assert "Lady4" not in embed.fields[3].value
+    assert "**Pending** 1 bet" in embed.fields[0].value
+    assert [field.name for field in embed.fields] == ["Today", "Periods", "All Time"]
+    assert all(field.name != "Playmaker Breakdown" for field in embed.fields)
     assert "MoneyPicks" in top_lines[0]
