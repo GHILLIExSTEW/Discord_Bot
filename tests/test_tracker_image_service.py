@@ -6,7 +6,12 @@ import discord
 from PIL import Image
 
 import src.bot as bot_module
-from src.services.tracker_image_service import render_tracker_image
+from src.services.tracker_image_service import _plain_text, render_tracker_image
+
+
+def test_decorative_display_names_render_as_readable_text():
+    assert _plain_text("𝓡⃞  o⃞  B⃞  i⃞  N⃞📚") == "R o B i N📚"
+    assert _plain_text("José") == "José"
 
 
 def test_tracker_image_has_transparency_and_contains_a_breakdown_section():

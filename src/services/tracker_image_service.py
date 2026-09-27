@@ -4,6 +4,7 @@ from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 import re
+import unicodedata
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
@@ -12,6 +13,7 @@ BACKGROUND_PATH = Path(__file__).resolve().parents[1] / "Media" / "Growth.png"
 IMAGE_WIDTH = 1200
 HORIZONTAL_PADDING = 72
 CARD_GAP = 24
+DECORATIVE_MARKS = "\u20dd\u20de\u20df\u20e2\u20e3\u20e4\u20e5\u20e6"
 
 
 @lru_cache(maxsize=8)
@@ -33,7 +35,11 @@ def _font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.I
 
 
 def _plain_text(value: str) -> str:
-    return re.sub(r"\*\*(.*?)\*\*", r"\1", value).strip()
+    text = re.sub(r"\*\*(.*?)\*\*", r"\1", value)
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(character for character in text if character not in DECORATIVE_MARKS)
+    text = unicodedata.normalize("NFC", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_width: int) -> list[str]:
