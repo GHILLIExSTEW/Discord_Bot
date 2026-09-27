@@ -3,6 +3,7 @@ import logging
 import re
 import uuid
 from datetime import datetime, time as datetime_time, timedelta, timezone
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import discord
@@ -15,6 +16,7 @@ from src.services.team_ranking_service import TeamRankingService
 from src.services.play_service import PlayService
 from src.services.image_play_service import image_play_service
 from src.services.diagnostic_service import diagnostic_service
+from src.services.tracker_image_service import render_tracker_image
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("official_play_bot")
@@ -264,12 +266,25 @@ def build_official_tracker_embed(plays: list[dict], users: list[dict], now: date
     return embed, top_lines
 
 
-async def update_or_post_tracker_embed(channel, embed: discord.Embed) -> None:
+async def update_or_post_tracker_embed(channel, embed: discord.Embed, image: BytesIO | None = None) -> None:
+    image_embed = embed
+    image_file = None
+    if image is not None:
+        image_file = discord.File(image, filename="unit-summary.png")
+        image_embed = discord.Embed(title=embed.title, color=embed.color)
+        image_embed.set_image(url="attachment://unit-summary.png")
+
     async for message in channel.history(limit=50):
         if message.author == bot.user and message.embeds and message.embeds[0].title == embed.title:
-            await message.edit(embed=embed)
+            if image_file:
+                await message.edit(embed=image_embed, attachments=[image_file])
+            else:
+                await message.edit(embed=embed)
             return
-    await channel.send(embed=embed)
+    if image_file:
+        await channel.send(embed=image_embed, file=image_file)
+    else:
+        await channel.send(embed=embed)
 
 
 async def refresh_tracker_embeds() -> int:
@@ -287,7 +302,12 @@ async def refresh_tracker_embeds() -> int:
 
     tracker_embed, top_lines = build_official_tracker_embed(plays, users)
     tracker_channel = bot.get_channel(RESULT_CHANNEL_ID) or await bot.fetch_channel(RESULT_CHANNEL_ID)
-    await update_or_post_tracker_embed(tracker_channel, tracker_embed)
+    tracker_image = render_tracker_image(
+        tracker_embed.description or "",
+        [(field.name, field.value) for field in tracker_embed.fields],
+        tracker_embed.footer.text or "",
+    )
+    await update_or_post_tracker_embed(tracker_channel, tracker_embed, tracker_image)
 
     if TEAM_STATS_CHANNEL_ID:
         team_channel = bot.get_channel(TEAM_STATS_CHANNEL_ID) or await bot.fetch_channel(TEAM_STATS_CHANNEL_ID)
