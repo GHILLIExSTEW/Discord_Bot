@@ -50,32 +50,64 @@ REACTION_RESULTS = {
 
 
 def build_play_embed(payload: dict) -> discord.Embed:
-    embed = discord.Embed(title="Official Play", description=payload["summary"], color=discord.Color.blurple())
-    embed.add_field(name="Units", value=f"{payload['units']}u", inline=True)
-    embed.add_field(name="Legs", value=str(payload["legs"]), inline=True)
-    embed.add_field(name="Odds", value=str(payload["odds"]), inline=True)
-    embed.add_field(name="To win", value=f"{payload['to_win']}u", inline=True)
-    if payload.get("team_name"):
-        embed.add_field(name="Team", value=payload["team_name"], inline=False)
+    embed = discord.Embed(title=f"Play #{payload['play_id']} • Open", description=payload["summary"], color=discord.Color.blurple())
+    embed.add_field(name="Units", value=f"{float(payload['units']):g}u", inline=True)
+    embed.add_field(name="Odds", value=f"{int(payload['odds']):+d}", inline=True)
+    embed.add_field(name="To win", value=f"{float(payload['to_win']):g}u", inline=True)
     if payload.get("play_text"):
-        embed.add_field(name="Notes", value=payload["play_text"][:1024], inline=False)
+        embed.add_field(name="Selections", value=payload["play_text"][:1024], inline=False)
     return embed
 
 
-async def publish_play_webhook(interaction: discord.Interaction, payload: dict) -> discord.Message:
+def build_settled_play_embed(message: discord.Message, play_id: int, result: str) -> discord.Embed:
+    if message.embeds:
+        embed = discord.Embed.from_dict(message.embeds[0].to_dict())
+    else:
+        embed = discord.Embed(description=f"Bet result: **{result.upper()}**")
+
+    for index in reversed(range(len(embed.fields))):
+        field = embed.fields[index]
+        if field.name.casefold() == "team":
+            embed.remove_field(index)
+        elif field.name.casefold() == "notes":
+            embed.set_field_at(index, name="Selections", value=field.value, inline=field.inline)
+
+    status_colors = {
+        "win": discord.Color.green(),
+        "loss": discord.Color.red(),
+        "void": discord.Color.dark_grey(),
+        "partial": discord.Color.orange(),
+        "regraded": discord.Color.blurple(),
+    }
+    embed.title = f"Play #{play_id} • {result.title()}"
+    embed.color = status_colors.get(result, discord.Color.blurple())
+    return embed
+
+
+async def update_play_message(message: discord.Message | None, play_id: int, result: str) -> None:
+    if message is None:
+        return
+    await message.edit(embed=build_settled_play_embed(message, play_id, result))
+
+
+async def fetch_guild_message(guild: discord.Guild | None, message_id: int) -> discord.Message | None:
+    if guild is None:
+        return None
+    for channel in guild.text_channels:
+        try:
+            return await channel.fetch_message(message_id)
+        except (discord.NotFound, discord.Forbidden):
+            continue
+    return None
+
+
+async def publish_play_message(interaction: discord.Interaction, payload: dict) -> discord.Message:
     channel = interaction.channel
-    if not hasattr(channel, "create_webhook"):
-        raise RuntimeError("The play channel does not support webhook posts.")
-    webhook = await channel.create_webhook(name="Official Play Publisher")
-    try:
-        return await webhook.send(
-            embed=build_play_embed(payload),
-            username=interaction.user.display_name,
-            avatar_url=interaction.user.display_avatar.url,
-            wait=True,
-        )
-    finally:
-        await webhook.delete(reason="Temporary user-attributed official play webhook")
+    embed = build_play_embed(payload)
+    embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
+    if payload.get("image_url"):
+        embed.set_image(url=payload["image_url"])
+    return await channel.send(embed=embed)
 
 
 def fetch_official_tracker_rows() -> tuple[list[dict], list[dict]]:
@@ -132,6 +164,7 @@ async def reconcile_open_play_reactions(plays: list[dict], users: list[dict], ch
 
         if result:
             await asyncio.to_thread(official_play_service.settle_play, int(play["id"]), result)
+            await update_play_message(message, int(play["id"]), result)
             settled_count += 1
 
     return settled_count
@@ -242,13 +275,12 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
         if play.get("status") != "open":
             return
         if result == "partial":
-            user = bot.get_user(payload.user_id) or await bot.fetch_user(payload.user_id)
-            await user.send(f"Play {play['id']} was marked partial. Use `/settle play_id:{play['id']} result:partial` for the remaining details.")
             return
 
         await asyncio.to_thread(official_play_service.settle_play, int(play["id"]), result)
-        user = bot.get_user(payload.user_id) or await bot.fetch_user(payload.user_id)
-        await user.send(f"Play {play['id']} settled as {result}.")
+        channel = bot.get_channel(payload.channel_id) or await bot.fetch_channel(payload.channel_id)
+        message = await channel.fetch_message(payload.message_id)
+        await update_play_message(message, int(play["id"]), result)
     except Exception:
         logger.exception("reaction_settlement_failed message=%s user=%s", payload.message_id, payload.user_id)
 
@@ -286,6 +318,7 @@ async def on_message(message: discord.Message):
 
     try:
         parsed = await asyncio.to_thread(image_play_service.extract_play, image.url, message.content)
+        parsed["image_url"] = image.url
         await message.channel.send(
             "User Reviewing Bet",
             view=AutoImageView(message.author.id, parsed, message.id),
@@ -332,7 +365,7 @@ async def record_modal_play(
 
     logger.info("play_webhook_start interaction=%s", interaction.id)
     try:
-        message = await publish_play_webhook(interaction, payload)
+        message = await publish_play_message(interaction, payload)
     except Exception as exc:
         await interaction.followup.send(f"Could not publish the play: {exc}", ephemeral=True)
         return
@@ -543,11 +576,9 @@ class ConfirmImageView(discord.ui.View):
             if payload.get("error"):
                 await interaction.followup.send(payload["error"], ephemeral=True)
                 return
-            if self.source_message_id is None:
-                message = await publish_play_webhook(interaction, payload)
-                await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
-            else:
-                await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], self.source_message_id)
+            payload["image_url"] = self.parsed.get("image_url")
+            message = await publish_play_message(interaction, payload)
+            await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
             await send_confirmation_message(interaction, payload)
             if interaction.message is not None:
                 await interaction.message.delete()
@@ -562,31 +593,17 @@ class ConfirmImageView(discord.ui.View):
         self.stop()
 
 
-def build_recorded_bet_embed(payload: dict, username: str) -> discord.Embed:
-    embed = discord.Embed(title="Recorded Bet", description=payload["summary"], color=discord.Color.green())
-    embed.set_author(name=username)
-    embed.add_field(name="Units", value=f"{payload['units']}u", inline=True)
-    embed.add_field(name="Legs", value=str(payload["legs"]), inline=True)
-    embed.add_field(name="Odds", value=f"{int(payload['odds']):+d}", inline=True)
-    embed.add_field(name="To win", value=f"{payload['to_win']}u", inline=True)
-    if payload.get("team_name"):
-        embed.add_field(name="Team", value=payload["team_name"], inline=False)
-    if payload.get("play_text"):
-        embed.add_field(name="Selections", value=payload["play_text"][:1024], inline=False)
-    return embed
-
-
 async def send_confirmation_message(interaction: discord.Interaction, payload: dict) -> None:
     channel_id = CONFIRMATION_CHANNEL_ID
-    if not channel_id:
-        logger.warning("recorded_bet_confirmation_skipped play_id=%s: CONFIRMATION_CHANNEL_ID is not configured", payload.get("play_id"))
-        return
-    channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
     payload["leg_records"] = await asyncio.to_thread(official_play_service.get_play_legs, payload["play_id"])
-    await channel.send(
-        embed=build_recorded_bet_embed(payload, interaction.user.display_name),
-        view=EditBetView(payload["play_id"], interaction.user.id, payload),
-    )
+    confirmation = f"Bet recorded: Play #{payload['play_id']}"
+    view = EditBetView(payload["play_id"], interaction.user.id, payload)
+    if channel_id:
+        channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
+        await channel.send(content=confirmation, view=view)
+    else:
+        logger.warning("recorded_bet_confirmation_using_followup play_id=%s: CONFIRMATION_CHANNEL_ID is not configured", payload.get("play_id"))
+        await interaction.followup.send(confirmation, ephemeral=True, view=view)
 
 
 class EditBetModal(discord.ui.Modal, title="Edit Recorded Bet"):
@@ -715,8 +732,6 @@ def build_image_review_embed(parsed: dict) -> discord.Embed:
         f"{index}. {leg['selection']} ({int(leg['odds']):+d})"
         for index, leg in enumerate(legs, start=1)
     )[:4096]
-    if parsed.get("team_name"):
-        embed.set_footer(text=f"Team: {parsed['team_name']}")
     return embed
 
 
@@ -789,8 +804,6 @@ def build_image_test_embed(parsed: dict) -> discord.Embed:
         value="\n".join(f"{index}. {leg['selection']} ({int(leg['odds']):+d})" for index, leg in enumerate(legs, start=1))[:1024],
         inline=False,
     )
-    if parsed.get("team_name"):
-        embed.set_footer(text=f"Team: {parsed['team_name']}")
     return embed
 
 
@@ -811,6 +824,7 @@ async def import_image_command(interaction: discord.Interaction, image: discord.
     await interaction.response.defer(ephemeral=True)
     try:
         parsed = await asyncio.to_thread(image_play_service.extract_play, image.url)
+        parsed["image_url"] = image.url
     except Exception as exc:
         logger.exception("image_play_extract_failed interaction=%s", interaction.id)
         await interaction.followup.send(f"Could not read that image: {exc}", ephemeral=True)
@@ -823,8 +837,6 @@ async def import_image_command(interaction: discord.Interaction, image: discord.
     embed.add_field(name="Legs", value=str(len(legs)), inline=True)
     embed.add_field(name="Combined odds", value=f"{odds:+d}", inline=True)
     embed.description = "\n".join(f"{index}. {leg['selection']} ({int(leg['odds']):+d})" for index, leg in enumerate(legs, start=1))
-    if parsed.get("team_name"):
-        embed.set_footer(text=f"Team: {parsed['team_name']}")
     await interaction.followup.send(embed=embed, content="Review the detected play before recording it:", view=ConfirmImageView(parsed), ephemeral=True)
 
 
@@ -911,7 +923,10 @@ async def settle_command(interaction: discord.Interaction, play_id: str, result:
         await interaction.response.send_message(str(exc), ephemeral=True)
         return
 
-    await interaction.response.send_message(f"Play {play_id} settled as {outcome['result']} with tally {outcome['tally']}.", ephemeral=True)
+    play_record = await asyncio.to_thread(official_play_service._fetch_play, int(play_id))
+    message = await fetch_guild_message(interaction.guild, int(play_record["message_id"])) if play_record.get("message_id") else None
+    await update_play_message(message, int(play_id), outcome["result"])
+    await interaction.response.send_message(f"Play #{play_id} updated.", ephemeral=True)
 
 
 @bot.tree.command(name="regrade", description="Regrade an official play")

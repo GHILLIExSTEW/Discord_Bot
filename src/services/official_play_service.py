@@ -120,7 +120,7 @@ class OfficialPlayService:
             "user_name": username,
             "team_name": payload["team_name"],
             "play_text": play_text or "",
-            "summary": f"{float(units):g}u • {int(legs)}-leg • {odds_value}",
+            "summary": f"{float(units):g}u • {int(legs)}-leg • {odds_value:+d}",
         }
 
     def attach_message_id(self, play_id: int, message_id: int) -> dict:

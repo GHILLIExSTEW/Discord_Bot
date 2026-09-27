@@ -29,7 +29,7 @@
   </header>
 
   <section><h2><span>📷</span>Automatic image flow</h2>
-    <p><b>1.</b> Upload a betting-slip image in the configured image channel. <b>2.</b> The bot reads selections, decimal/American odds, team, and units. <b>3.</b> The bot posts <b>User Reviewing Bet</b> with a <b>Review image</b> button. <b>4.</b> Review and confirm. <b>5.</b> The bot records the play against the original image message and removes the review message. It does not repost the bet.</p>
+    <p><b>1.</b> Upload a betting-slip image in the configured image channel. <b>2.</b> The bot reads the selections, odds, and units. <b>3.</b> The bot posts <b>User Reviewing Bet</b> with a <b>Review image</b> button. <b>4.</b> Review and confirm. <b>5.</b> The bot posts an editable play card with the slip image, play number, units, odds, potential win, and selections. Results update on that card.</p>
   </section>
 
   <section><h2><span>✍️</span>Manual play entry</h2>
@@ -42,13 +42,13 @@
   </section>
 
   <section><h2><span>✏️</span>Editing a recorded bet</h2>
-    <p>The tracking channel receives a <b>Recorded Bet</b> embed with an <b>Edit bet</b> button. Only the original user can edit it. The edit form loads each leg from the database, recalculates combined odds, and updates the stored play.</p>
+    <p>The confirmation channel receives a brief <b>Bet recorded: Play #…</b> message with an <b>Edit bet</b> button. Only the original user can edit it. The edit form loads each leg from the database, recalculates combined odds, and updates the stored play.</p>
   </section>
 
   <section><h2><span>✅</span>Results and reactions</h2>
-    <p>The original user can react to the original bet message:</p>
+    <p>The original user can react to the recorded play post:</p>
     <p><b>✅ Win</b> &nbsp; <b>❌ Loss</b> &nbsp; <b>🅿️ Void</b> &nbsp; <b>🌓 Partial</b></p>
-    <p>Win, loss, and void settle immediately. Partial sends a private follow-up for the remaining details.</p>
+    <p>Win, loss, and void settle immediately, and the result appears on the play card without a direct message. Use <code>/settle</code> for partial results.</p>
   </section>
 
   <section><h2><span>📊</span>Tracker updates</h2>

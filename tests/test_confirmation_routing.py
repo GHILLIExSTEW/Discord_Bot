@@ -33,3 +33,34 @@ def test_confirmation_uses_dedicated_channel(monkeypatch):
 
     assert requested_channel_ids == [101]
     assert len(confirmation_channel.sent) == 1
+    assert confirmation_channel.sent[0]["content"] == "Bet recorded: Play #1"
+    assert "embed" not in confirmation_channel.sent[0]
+
+
+def test_play_embed_shows_tracking_details_without_team():
+    embed = bot_module.build_play_embed({
+        "play_id": 42,
+        "summary": "5u • 1-leg • +115",
+        "units": 5,
+        "odds": 115,
+        "to_win": 5.75,
+        "team_name": "Incorrect Team",
+        "play_text": "Leg 1: Selection (-125)",
+    })
+
+    assert embed.title == "Play #42 • Open"
+    assert [field.name for field in embed.fields] == ["Units", "Odds", "To win", "Selections"]
+    assert [field.value for field in embed.fields[:3]] == ["5u", "+115", "5.75u"]
+    assert all(field.name != "Team" for field in embed.fields)
+
+
+def test_settled_play_embed_shows_result_and_removes_legacy_team_field():
+    original = bot_module.discord.Embed(title="Official Play", description="5u • 1-leg • -125")
+    original.add_field(name="Team", value="Incorrect Team")
+    original.add_field(name="Notes", value="Leg 1: Selection (-125)")
+    message = SimpleNamespace(embeds=[original])
+
+    updated = bot_module.build_settled_play_embed(message, 42, "win")
+
+    assert updated.title == "Play #42 • Win"
+    assert [field.name for field in updated.fields] == ["Selections"]
