@@ -26,15 +26,59 @@ def test_confirmation_uses_dedicated_channel(monkeypatch):
     monkeypatch.setattr(bot_module.bot, "fetch_channel", fetch_channel)
     monkeypatch.setattr(bot_module.official_play_service, "get_play_legs", lambda play_id: [])
 
-    interaction = SimpleNamespace(user=SimpleNamespace(id=1, display_name="Test User"))
+    followup = SimpleNamespace(sent=[])
+
+    async def send_followup(content=None, **kwargs):
+        kwargs["content"] = content
+        followup.sent.append(kwargs)
+
+    followup.send = send_followup
+    interaction = SimpleNamespace(user=SimpleNamespace(id=1, display_name="Test User"), followup=followup)
     payload = {"play_id": 1, "summary": "Test play", "units": 1, "legs": 1, "odds": -110, "to_win": 0.91}
 
     asyncio.run(bot_module.send_confirmation_message(interaction, payload))
 
+    assert requested_channel_ids == []
+    assert confirmation_channel.sent == []
+    assert len(followup.sent) == 1
+    assert followup.sent[0]["content"] == "Bet recorded: Play #1"
+    assert followup.sent[0]["ephemeral"] is True
+
+
+def test_play_card_posts_to_confirmation_channel_not_interaction_channel(monkeypatch):
+    confirmation_channel = CapturingChannel()
+    interaction_channel = CapturingChannel()
+    requested_channel_ids = []
+
+    async def fetch_channel(channel_id):
+        requested_channel_ids.append(channel_id)
+        return confirmation_channel
+
+    monkeypatch.setattr(bot_module, "CONFIRMATION_CHANNEL_ID", 101)
+    monkeypatch.setattr(bot_module.bot, "get_channel", lambda channel_id: None)
+    monkeypatch.setattr(bot_module.bot, "fetch_channel", fetch_channel)
+    interaction = SimpleNamespace(
+        channel=interaction_channel,
+        user=SimpleNamespace(
+            display_name="Test User",
+            display_avatar=SimpleNamespace(url="https://example.com/avatar.png"),
+        ),
+    )
+    payload = {
+        "play_id": 10,
+        "summary": "1u • 1-leg • +100",
+        "units": 1,
+        "legs": 1,
+        "odds": 100,
+        "to_win": 1,
+        "play_text": "Selection (+100)",
+    }
+
+    asyncio.run(bot_module.publish_play_message(interaction, payload))
+
     assert requested_channel_ids == [101]
     assert len(confirmation_channel.sent) == 1
-    assert confirmation_channel.sent[0]["content"] == "Bet recorded: Play #1"
-    assert "embed" not in confirmation_channel.sent[0]
+    assert interaction_channel.sent == []
 
 
 def test_play_embed_shows_tracking_details_without_team():

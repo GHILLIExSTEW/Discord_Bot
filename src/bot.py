@@ -106,7 +106,9 @@ async def fetch_guild_message(guild: discord.Guild | None, message_id: int) -> d
 
 
 async def publish_play_message(interaction: discord.Interaction, payload: dict) -> discord.Message:
-    channel = interaction.channel
+    if not CONFIRMATION_CHANNEL_ID:
+        raise RuntimeError("CONFIRMATION_CHANNEL_ID is not configured.")
+    channel = bot.get_channel(CONFIRMATION_CHANNEL_ID) or await bot.fetch_channel(CONFIRMATION_CHANNEL_ID)
     embed = build_play_embed(payload)
     embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
     if payload.get("image_url"):
@@ -674,16 +676,10 @@ class ConfirmImageView(discord.ui.View):
 
 
 async def send_confirmation_message(interaction: discord.Interaction, payload: dict) -> None:
-    channel_id = CONFIRMATION_CHANNEL_ID
     payload["leg_records"] = await asyncio.to_thread(official_play_service.get_play_legs, payload["play_id"])
     confirmation = f"Bet recorded: Play #{payload['play_id']}"
     view = EditBetView(payload["play_id"], interaction.user.id, payload)
-    if channel_id:
-        channel = bot.get_channel(channel_id) or await bot.fetch_channel(channel_id)
-        await channel.send(content=confirmation, view=view)
-    else:
-        logger.warning("recorded_bet_confirmation_using_followup play_id=%s: CONFIRMATION_CHANNEL_ID is not configured", payload.get("play_id"))
-        await interaction.followup.send(confirmation, ephemeral=True, view=view)
+    await interaction.followup.send(confirmation, ephemeral=True, view=view)
 
 
 class EditBetModal(discord.ui.Modal, title="Edit Recorded Bet"):
