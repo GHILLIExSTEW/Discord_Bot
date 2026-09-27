@@ -202,18 +202,11 @@ def build_official_tracker_embed(plays: list[dict], users: list[dict], now: date
     def in_period(play: dict, start: datetime) -> bool:
         return start <= settled_time(play) <= now
 
-    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    month_start = day_start.replace(day=1)
-    year_start = day_start.replace(month=1, day=1)
-    daily = [play for play in settled if settled_time(play).date() == today]
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
 
     def net(rows: list[dict]) -> float:
         return sum(signed(play) for play in rows)
-
-    win_units = sum(float(play["units"]) for play in daily if play.get("status") == "win")
-    loss_units = sum(float(play["units"]) for play in daily if play.get("status") == "loss")
-    all_wins = sum(float(play["units"]) for play in settled if play.get("status") == "win")
-    all_losses = sum(float(play["units"]) for play in settled if play.get("status") == "loss")
 
     by_user = {}
     names = {str(user["id"]): user.get("display_name") or user.get("username") for user in users}
@@ -246,27 +239,20 @@ def build_official_tracker_embed(plays: list[dict], users: list[dict], now: date
 
     report_date = f"{today.strftime('%B')} {today.day}, {today.year}"
     embed = discord.Embed(title="Playmaker Picks | Unit Summary", description=f"Results for **{report_date}**", color=discord.Color.green())
-    daily_wins = sum(play.get("status") == "win" for play in daily)
-    daily_losses = sum(play.get("status") == "loss" for play in daily)
     pending_label = "bet" if len(pending) == 1 else "bets"
     embed.add_field(
-        name="Today",
-        value=f"**Net** {net(daily):+g}u\n\n✅ +{win_units:g}u · ❌ -{loss_units:g}u\n\n**Record** {daily_wins}-{daily_losses} · {len(daily)} settled\n\n**Pending** {len(pending)} {pending_label}",
+        name="Pending Bets",
+        value=f"{len(pending)} {pending_label}",
         inline=True,
     )
-    seven_day_net = net([play for play in settled if in_period(play, now - timedelta(days=6))])
-    month_net = net([play for play in settled if in_period(play, month_start)])
-    year_net = net([play for play in settled if in_period(play, year_start)])
     embed.add_field(
-        name="Periods",
-        value=f"**7D** {seven_day_net:+g}u\n\n**MTD** {month_net:+g}u\n\n**YTD** {year_net:+g}u",
+        name="Monthly Units",
+        value=f"{net([play for play in settled if in_period(play, month_start)]):+g}u",
         inline=True,
     )
-    all_time_wins = sum(play.get("status") == "win" for play in settled)
-    all_time_losses = sum(play.get("status") == "loss" for play in settled)
     embed.add_field(
-        name="All Time",
-        value=f"**Net** {net(settled):+g}u\n\n✅ +{all_wins:g}u · ❌ -{all_losses:g}u\n\n**Record** {all_time_wins}-{all_time_losses} · {len(settled)} settled",
+        name="Yearly Units",
+        value=f"{net([play for play in settled if in_period(play, year_start)]):+g}u",
         inline=True,
     )
     embed.add_field(
