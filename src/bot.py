@@ -140,6 +140,24 @@ def fetch_official_tracker_rows() -> tuple[list[dict], list[dict]]:
     )
 
 
+def settlement_channel_settings() -> list[tuple[str, int | None]]:
+    settings = [("OFFICIAL_CHANNEL_ID", OFFICIAL_CHANNEL_ID)]
+    if testing_enabled:
+        settings.append(("CONFIRMATION_CHANNEL_ID", CONFIRMATION_CHANNEL_ID))
+    return [(name, channel_id) for name, channel_id in settings if channel_id]
+
+
+def user_can_settle(user, owner_id: str, guild: discord.Guild | None) -> bool:
+    if str(user.id) == str(owner_id):
+        return True
+    member = user if isinstance(user, discord.Member) else (guild.get_member(user.id) if guild else None)
+    if member is None:
+        return False
+    if any(role.id in OPERATOR_ROLE_IDS for role in getattr(member, "roles", [])):
+        return True
+    return bool(getattr(member.guild_permissions, "manage_guild", False))
+
+
 async def reconcile_open_play_reactions(plays: list[dict], users: list[dict], channels: list) -> int:
     discord_user_ids = {str(user["id"]): str(user.get("discord_user_id")) for user in users}
     settled_count = 0
@@ -167,7 +185,7 @@ async def reconcile_open_play_reactions(plays: list[dict], users: list[dict], ch
             if reaction_result is None or reaction_result == "partial":
                 continue
             async for reaction_user in reaction.users():
-                if str(reaction_user.id) == owner_id:
+                if user_can_settle(reaction_user, owner_id, message.guild):
                     result = reaction_result
                     break
             if result:
@@ -318,14 +336,8 @@ async def refresh_tracker_embeds() -> int:
         raise RuntimeError("RESULT_CHANNEL_ID is not configured.")
 
     plays, users = await asyncio.to_thread(fetch_official_tracker_rows)
-    reaction_settings = [
-        ("OFFICIAL_CHANNEL_ID", OFFICIAL_CHANNEL_ID),
-        ("IMAGE_INPUT_CHANNEL_ID", IMAGE_INPUT_CHANNEL_ID),
-    ]
-    if testing_enabled:
-        reaction_settings.insert(0, ("CONFIRMATION_CHANNEL_ID", CONFIRMATION_CHANNEL_ID))
     reaction_channels = []
-    for setting_name, channel_id in dict.fromkeys(reaction_settings):
+    for setting_name, channel_id in dict.fromkeys(settlement_channel_settings()):
         channel = await resolve_channel(channel_id, setting_name)
         if channel is not None:
             reaction_channels.append(channel)
@@ -380,18 +392,24 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     result = REACTION_RESULTS.get(str(payload.emoji))
     if result is None:
         return
+    if payload.channel_id not in {channel_id for _, channel_id in settlement_channel_settings()}:
+        return
 
     try:
         play = await asyncio.to_thread(official_play_service.get_play_for_message, payload.message_id)
-        if not play or str(play.get("discord_user_id")) != str(payload.user_id):
+        if not play:
             return
         if play.get("status") != "open":
             return
         if result == "partial":
             return
 
-        await asyncio.to_thread(official_play_service.settle_play, int(play["id"]), result)
         channel = bot.get_channel(payload.channel_id) or await bot.fetch_channel(payload.channel_id)
+        reactor = payload.member or bot.get_user(payload.user_id) or await bot.fetch_user(payload.user_id)
+        if not user_can_settle(reactor, str(play.get("discord_user_id")), getattr(channel, "guild", None)):
+            return
+
+        await asyncio.to_thread(official_play_service.settle_play, int(play["id"]), result)
         message = await channel.fetch_message(payload.message_id)
         await update_play_message(message, int(play["id"]), result)
     except Exception:
