@@ -5,14 +5,28 @@ from typing import Any
 
 class SettlementService:
     @staticmethod
-    def tally_for_result(result: str, units: float) -> float:
+    def profit_multiplier(odds: Any) -> float:
+        """Profit per unit staked for American odds. Falls back to even money."""
+        try:
+            odds_value = int(odds)
+        except (TypeError, ValueError):
+            return 1.0
+        if odds_value > 0:
+            return odds_value / 100.0
+        if odds_value < 0:
+            return 100.0 / abs(odds_value)
+        return 1.0
+
+    @staticmethod
+    def tally_for_result(result: str, units: float, odds: Any = None) -> float:
         normalized = (result or "").strip().lower()
+        profit = float(units) * SettlementService.profit_multiplier(odds)
         if normalized == "win":
-            return float(units)
+            return round(profit, 2)
         if normalized == "loss":
             return float(-units)
         if normalized == "partial":
-            return float(units * 0.5)
+            return round(profit * 0.5, 2)
         if normalized == "void":
             return 0.0
         if normalized == "regraded":

@@ -21,7 +21,7 @@ def main(limit: int) -> None:
     db = supabase_service._ensure_client()
     plays = (
         db.table("plays")
-        .select("id,user_id,units,status,created_at,settled_at")
+        .select("id,user_id,units,odds,status,created_at,settled_at")
         .order("created_at", desc=True)
         .limit(limit)
         .execute()
@@ -51,7 +51,7 @@ def main(limit: int) -> None:
         if status not in SETTLED_STATUSES:
             continue
 
-        tally = SettlementService.tally_for_result(status, units)
+        tally = SettlementService.tally_for_result(status, units, play.get("odds"))
         bucket["net"] += tally
         all_time += tally
 

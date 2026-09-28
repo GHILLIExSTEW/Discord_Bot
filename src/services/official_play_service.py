@@ -167,7 +167,8 @@ class OfficialPlayService:
         if result not in {"win", "loss", "void", "partial", "regraded"}:
             raise ValueError(f"Unsupported result: {result}")
 
-        tally = self.settlement_service.tally_for_result(result, float(self._fetch_play(play_id)["units"]))
+        play = self._fetch_play(play_id)
+        tally = self.settlement_service.tally_for_result(result, float(play["units"]), play.get("odds"))
         supabase_service.update(
             "plays",
             {"status": result, "settled_at": datetime.now(timezone.utc).isoformat()},

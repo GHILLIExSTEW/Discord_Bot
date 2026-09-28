@@ -45,13 +45,13 @@ class DiagnosticService:
     def _settlement_math() -> str:
         service = SettlementService()
         expected = {
-            "win": 2.0,
+            "win": 4.0,
             "loss": -2.0,
             "void": 0.0,
-            "partial": 1.0,
+            "partial": 2.0,
         }
         for result, value in expected.items():
-            if service.tally_for_result(result, 2.0) != value:
+            if service.tally_for_result(result, 2.0, 200) != value:
                 raise AssertionError(f"{result} tally mismatch")
         return "win/loss/void/partial calculations passed"
 

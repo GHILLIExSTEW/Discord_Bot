@@ -139,7 +139,7 @@ def fetch_official_tracker_rows() -> tuple[list[dict], list[dict]]:
             offset += 1000
 
     return (
-        fetch("plays", "id,user_id,units,status,message_id,created_at,settled_at"),
+        fetch("plays", "id,user_id,units,odds,status,message_id,created_at,settled_at"),
         fetch("users", "id,discord_user_id,display_name,username"),
     )
 
@@ -225,7 +225,7 @@ def build_official_tracker_embed(plays: list[dict], users: list[dict], now: date
     pending = [play for play in plays if play.get("status") not in settled_statuses]
 
     def signed(play: dict) -> float:
-        return official_play_service.settlement_service.tally_for_result(play["status"], float(play["units"]))
+        return official_play_service.settlement_service.tally_for_result(play["status"], float(play["units"]), play.get("odds"))
 
     def settled_time(play: dict) -> datetime:
         return parse_tracker_time(play.get("settled_at") or play["created_at"], timezone_name)
@@ -246,7 +246,7 @@ def build_official_tracker_embed(plays: list[dict], users: list[dict], now: date
         bucket = by_user.setdefault(user_id, {"wins": 0.0, "losses": 0.0, "win_count": 0, "loss_count": 0})
         units = float(play["units"])
         if play.get("status") == "win":
-            bucket["wins"] += units
+            bucket["wins"] += signed(play)
             bucket["win_count"] += 1
         elif play.get("status") == "loss":
             bucket["losses"] += units
