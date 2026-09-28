@@ -254,6 +254,8 @@ def build_official_tracker_embed(
     by_user = {}
     names = {str(user["id"]): user.get("display_name") or user.get("username") for user in users}
     for play in settled:
+        if not in_period(play, month_start):
+            continue
         user_id = str(play["user_id"])
         bucket = by_user.setdefault(user_id, {"wins": 0.0, "losses": 0.0, "win_count": 0, "loss_count": 0})
         units = float(play["units"])
@@ -276,7 +278,7 @@ def build_official_tracker_embed(
         name = names.get(user_id, user_id)
         rate = data["win_count"] / total * 100 if total else 0
         net_units = data["wins"] - data["losses"]
-        breakdown.append(f"**{name}** · {data['win_count']}-{data['loss_count']} · {net_units:+g}u · {rate:.0f}%")
+        breakdown.append(f"**{name}** · {data['win_count']}-{data['loss_count']} · {rate:.0f}%")
         if index < 3:
             top_lines.append(f"{medals[index]} **{name}** — **{net_units:+g} units**\n{data['win_count']}-{data['loss_count']} record | {rate:.0f}% win rate")
 
@@ -299,7 +301,7 @@ def build_official_tracker_embed(
         inline=True,
     )
     embed.add_field(
-        name="🏆 Playmaker Breakdown",
+        name="🏆 Monthly Playmaker Breakdown",
         value="\n\n".join(breakdown)[:1024] or "No settled plays yet.",
         inline=False,
     )

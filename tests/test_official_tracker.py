@@ -17,7 +17,7 @@ def test_tracker_uses_only_official_plays_and_settlement_time():
 
     embed, top_lines = build_official_tracker_embed(plays, users, now)
 
-    assert [field.name for field in embed.fields] == ["⏳ Pending Bets", "📅 Monthly Units", "🗓️ Yearly Units", "🏆 Playmaker Breakdown"]
+    assert [field.name for field in embed.fields] == ["⏳ Pending Bets", "📅 Monthly Units", "🗓️ Yearly Units", "🏆 Monthly Playmaker Breakdown"]
     assert embed.fields[0].value == "1 bet"
     assert embed.fields[1].value == "+2u"
     assert embed.fields[2].value == "+2u"
