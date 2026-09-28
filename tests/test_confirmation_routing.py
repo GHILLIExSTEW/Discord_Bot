@@ -45,16 +45,18 @@ def test_confirmation_uses_dedicated_channel(monkeypatch):
     assert followup.sent[0]["ephemeral"] is True
 
 
-def test_play_card_posts_to_confirmation_channel_not_interaction_channel(monkeypatch):
-    confirmation_channel = CapturingChannel()
+def test_play_card_posts_to_official_channel_not_interaction_channel(monkeypatch):
+    target_channel = CapturingChannel()
     interaction_channel = CapturingChannel()
     requested_channel_ids = []
 
     async def fetch_channel(channel_id):
         requested_channel_ids.append(channel_id)
-        return confirmation_channel
+        return target_channel
 
+    monkeypatch.setattr(bot_module, "OFFICIAL_CHANNEL_ID", 303)
     monkeypatch.setattr(bot_module, "CONFIRMATION_CHANNEL_ID", 101)
+    monkeypatch.setattr(bot_module, "testing_enabled", False)
     monkeypatch.setattr(bot_module.bot, "get_channel", lambda channel_id: None)
     monkeypatch.setattr(bot_module.bot, "fetch_channel", fetch_channel)
     interaction = SimpleNamespace(
@@ -76,9 +78,44 @@ def test_play_card_posts_to_confirmation_channel_not_interaction_channel(monkeyp
 
     asyncio.run(bot_module.publish_play_message(interaction, payload))
 
-    assert requested_channel_ids == [101]
-    assert len(confirmation_channel.sent) == 1
+    assert requested_channel_ids == [303]
+    assert len(target_channel.sent) == 1
     assert interaction_channel.sent == []
+
+
+def test_play_card_posts_to_confirmation_channel_while_testing(monkeypatch):
+    target_channel = CapturingChannel()
+    requested_channel_ids = []
+
+    async def fetch_channel(channel_id):
+        requested_channel_ids.append(channel_id)
+        return target_channel
+
+    monkeypatch.setattr(bot_module, "OFFICIAL_CHANNEL_ID", 303)
+    monkeypatch.setattr(bot_module, "CONFIRMATION_CHANNEL_ID", 101)
+    monkeypatch.setattr(bot_module, "testing_enabled", True)
+    monkeypatch.setattr(bot_module.bot, "get_channel", lambda channel_id: None)
+    monkeypatch.setattr(bot_module.bot, "fetch_channel", fetch_channel)
+    interaction = SimpleNamespace(
+        user=SimpleNamespace(
+            display_name="Test User",
+            display_avatar=SimpleNamespace(url="https://example.com/avatar.png"),
+        ),
+    )
+    payload = {
+        "play_id": 11,
+        "summary": "1u • 1-leg • +100",
+        "units": 1,
+        "legs": 1,
+        "odds": 100,
+        "to_win": 1,
+        "play_text": "Selection (+100)",
+    }
+
+    asyncio.run(bot_module.publish_play_message(interaction, payload))
+
+    assert requested_channel_ids == [101]
+    assert len(target_channel.sent) == 1
 
 
 def test_play_embed_shows_tracking_details_without_team():

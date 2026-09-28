@@ -105,10 +105,15 @@ async def fetch_guild_message(guild: discord.Guild | None, message_id: int) -> d
     return None
 
 
+def play_post_target() -> tuple[str, int | None]:
+    if testing_enabled:
+        return "CONFIRMATION_CHANNEL_ID", CONFIRMATION_CHANNEL_ID
+    return "OFFICIAL_CHANNEL_ID", OFFICIAL_CHANNEL_ID
+
+
 async def publish_play_message(interaction: discord.Interaction, payload: dict) -> discord.Message:
-    if not CONFIRMATION_CHANNEL_ID:
-        raise RuntimeError("CONFIRMATION_CHANNEL_ID is not configured.")
-    channel = bot.get_channel(CONFIRMATION_CHANNEL_ID) or await bot.fetch_channel(CONFIRMATION_CHANNEL_ID)
+    setting_name, channel_id = play_post_target()
+    channel = await resolve_channel(channel_id, setting_name, required=True)
     embed = build_play_embed(payload)
     embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
     if payload.get("image_url"):
@@ -313,14 +318,14 @@ async def refresh_tracker_embeds() -> int:
         raise RuntimeError("RESULT_CHANNEL_ID is not configured.")
 
     plays, users = await asyncio.to_thread(fetch_official_tracker_rows)
+    reaction_settings = [
+        ("OFFICIAL_CHANNEL_ID", OFFICIAL_CHANNEL_ID),
+        ("IMAGE_INPUT_CHANNEL_ID", IMAGE_INPUT_CHANNEL_ID),
+    ]
+    if testing_enabled:
+        reaction_settings.insert(0, ("CONFIRMATION_CHANNEL_ID", CONFIRMATION_CHANNEL_ID))
     reaction_channels = []
-    for setting_name, channel_id in dict.fromkeys(
-        (
-            ("CONFIRMATION_CHANNEL_ID", CONFIRMATION_CHANNEL_ID),
-            ("OFFICIAL_CHANNEL_ID", OFFICIAL_CHANNEL_ID),
-            ("IMAGE_INPUT_CHANNEL_ID", IMAGE_INPUT_CHANNEL_ID),
-        )
-    ):
+    for setting_name, channel_id in dict.fromkeys(reaction_settings):
         channel = await resolve_channel(channel_id, setting_name)
         if channel is not None:
             reaction_channels.append(channel)
