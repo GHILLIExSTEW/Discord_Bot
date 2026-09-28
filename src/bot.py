@@ -289,21 +289,47 @@ async def update_or_post_tracker_embed(channel, embed: discord.Embed, image: Byt
         await channel.send(embed=embed)
 
 
+async def resolve_channel(channel_id: int | None, setting_name: str, required: bool = False):
+    if not channel_id:
+        if required:
+            raise RuntimeError(f"{setting_name} is not configured.")
+        return None
+    channel = bot.get_channel(channel_id)
+    if channel is not None:
+        return channel
+    try:
+        return await bot.fetch_channel(channel_id)
+    except (discord.NotFound, discord.Forbidden) as exc:
+        if required:
+            raise RuntimeError(
+                f"{setting_name}={channel_id} is not reachable: the channel does not exist or the bot lacks access."
+            ) from exc
+        logger.warning("tracker_channel_unavailable setting=%s channel_id=%s", setting_name, channel_id)
+        return None
+
+
 async def refresh_tracker_embeds() -> int:
     if not RESULT_CHANNEL_ID:
         raise RuntimeError("RESULT_CHANNEL_ID is not configured.")
 
     plays, users = await asyncio.to_thread(fetch_official_tracker_rows)
     reaction_channels = []
-    for channel_id in dict.fromkeys((OFFICIAL_CHANNEL_ID, IMAGE_INPUT_CHANNEL_ID)):
-        if channel_id:
-            reaction_channels.append(bot.get_channel(channel_id) or await bot.fetch_channel(channel_id))
+    for setting_name, channel_id in dict.fromkeys(
+        (
+            ("CONFIRMATION_CHANNEL_ID", CONFIRMATION_CHANNEL_ID),
+            ("OFFICIAL_CHANNEL_ID", OFFICIAL_CHANNEL_ID),
+            ("IMAGE_INPUT_CHANNEL_ID", IMAGE_INPUT_CHANNEL_ID),
+        )
+    ):
+        channel = await resolve_channel(channel_id, setting_name)
+        if channel is not None:
+            reaction_channels.append(channel)
     reconciled = await reconcile_open_play_reactions(plays, users, reaction_channels)
     if reconciled:
         plays, users = await asyncio.to_thread(fetch_official_tracker_rows)
 
     tracker_embed, top_lines = build_official_tracker_embed(plays, users)
-    tracker_channel = bot.get_channel(RESULT_CHANNEL_ID) or await bot.fetch_channel(RESULT_CHANNEL_ID)
+    tracker_channel = await resolve_channel(RESULT_CHANNEL_ID, "RESULT_CHANNEL_ID", required=True)
     tracker_image = render_tracker_image(
         tracker_embed.description or "",
         [(field.name, field.value) for field in tracker_embed.fields],
@@ -311,8 +337,8 @@ async def refresh_tracker_embeds() -> int:
     )
     await update_or_post_tracker_embed(tracker_channel, tracker_embed, tracker_image)
 
-    if TEAM_STATS_CHANNEL_ID:
-        team_channel = bot.get_channel(TEAM_STATS_CHANNEL_ID) or await bot.fetch_channel(TEAM_STATS_CHANNEL_ID)
+    team_channel = await resolve_channel(TEAM_STATS_CHANNEL_ID, "TEAM_STATS_CHANNEL_ID")
+    if team_channel is not None:
         top_embed = discord.Embed(title="Top Playmakers", color=discord.Color.gold())
         top_embed.description = "\n\n".join(top_lines) or "No settled results yet."
         await update_or_post_tracker_embed(team_channel, top_embed)
