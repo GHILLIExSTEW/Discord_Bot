@@ -235,6 +235,11 @@ def build_official_tracker_embed(
     else:
         now = now.astimezone(ZoneInfo(timezone_name))
     today = now.date()
+    linked_plays = {}
+    for play in sorted(plays, key=lambda row: int(row["id"])):
+        if play.get("message_id"):
+            linked_plays.setdefault(str(play["message_id"]), play)
+    plays = list(linked_plays.values())
     settled_statuses = {"win", "loss", "void", "partial"}
     settled = [play for play in plays if play.get("status") in settled_statuses]
     pending = [play for play in plays if play.get("status") not in settled_statuses]
@@ -713,13 +718,21 @@ class ConfirmImageView(discord.ui.View):
         super().__init__(timeout=900)
         self.parsed = parsed
         self.source_message_id = source_message_id
+        self.recording = False
 
     @discord.ui.button(label="Confirm and record", style=discord.ButtonStyle.success)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         await interaction.response.defer(ephemeral=True)
+        if self.recording:
+            await interaction.followup.send("This image is already being recorded.", ephemeral=True)
+            return
+        self.recording = True
         legs = self.parsed["legs"]
         odds_values = [int(leg["odds"]) for leg in legs]
         try:
+            if self.source_message_id and await asyncio.to_thread(official_play_service.get_play_for_message, self.source_message_id):
+                await interaction.followup.send("This image has already been recorded.", ephemeral=True)
+                return
             payload = await asyncio.to_thread(
                 official_play_service.create_play_record,
                 discord_user_id=str(interaction.user.id),
@@ -746,6 +759,8 @@ class ConfirmImageView(discord.ui.View):
         except Exception as exc:
             logger.exception("image_play_confirm_failed interaction=%s", interaction.id)
             await interaction.followup.send(f"Could not record the play: {exc}", ephemeral=True)
+        finally:
+            self.recording = False
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:

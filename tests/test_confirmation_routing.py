@@ -1,5 +1,6 @@
 import asyncio
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import src.bot as bot_module
 
@@ -42,6 +43,27 @@ def test_confirmation_uses_dedicated_channel(monkeypatch):
     assert len(followup.sent) == 1
     assert followup.sent[0]["content"] == "Bet recorded: Play #1"
     assert followup.sent[0]["ephemeral"] is True
+
+
+def test_confirming_recorded_image_does_not_create_another_play(monkeypatch):
+    view = bot_module.ConfirmImageView({"legs": [{"odds": -110}]}, source_message_id=123)
+    create_play = Mock()
+    monkeypatch.setattr(bot_module.official_play_service, "get_play_for_message", lambda message_id: {"id": 42})
+    monkeypatch.setattr(bot_module.official_play_service, "create_play_record", create_play)
+
+    replies = []
+
+    async def defer(**kwargs):
+        pass
+
+    async def send(content, **kwargs):
+        replies.append((content, kwargs))
+
+    interaction = SimpleNamespace(response=SimpleNamespace(defer=defer), followup=SimpleNamespace(send=send))
+    asyncio.run(view.confirm.callback(interaction))
+
+    create_play.assert_not_called()
+    assert replies == [("This image has already been recorded.", {"ephemeral": True})]
 
 
 def test_play_card_posts_to_confirmation_channel_not_interaction_channel(monkeypatch):
