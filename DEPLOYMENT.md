@@ -40,7 +40,6 @@ Edit `.env` and fill in:
 - `OPERATOR_ROLE_IDS`
 - `OFFICIAL_CHANNEL_ID`
 - `IMAGE_INPUT_CHANNEL_ID`
-- `TRACKING_CHANNEL_ID`
 - `TEAM_STATS_CHANNEL_ID`
 
 ## 4. Validate the Python app
