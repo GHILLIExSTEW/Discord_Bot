@@ -14,6 +14,108 @@ IMAGE_WIDTH = 1200
 HORIZONTAL_PADDING = 72
 CARD_GAP = 24
 DECORATIVE_MARKS = "\u20dd\u20de\u20df\u20e2\u20e3\u20e4\u20e5\u20e6"
+EMOJI_FONT_PATHS = (
+    r"C:\Windows\Fonts\seguiemj.ttf",
+    "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+    "/usr/share/fonts/truetype/noto/NotoColorEmoji-Regular.ttf",
+    "/usr/share/fonts/truetype/ancient-scripts/Symbola_hint.ttf",
+)
+# Color emoji fonts ship their bitmap layers at this pixel size only.
+EMOJI_NATIVE_PX = 109
+EMOJI_PATTERN = re.compile(
+    "(?:[\U0001F300-\U0001FAFF\U0001F000-\U0001F0FF\U0001F100-\U0001F1FF"
+    "\u2600-\u27bf\u2b00-\u2bff\u2190-\u21ff\u2300-\u23ff\u2900-\u297f]"
+    "[\ufe0f\u200d\U0001F3FB-\U0001F3FF]*)+"
+)
+
+
+@lru_cache(maxsize=1)
+def _emoji_font_path() -> str | None:
+    for candidate in EMOJI_FONT_PATHS:
+        if Path(candidate).exists():
+            return candidate
+    return None
+
+
+@lru_cache(maxsize=256)
+def _emoji_tile(cluster: str, height: int) -> Image.Image | None:
+    font_path = _emoji_font_path()
+    if not font_path:
+        return None
+    try:
+        font = ImageFont.truetype(font_path, EMOJI_NATIVE_PX)
+    except OSError:
+        return None
+
+    tile = Image.new("RGBA", (EMOJI_NATIVE_PX * 2, EMOJI_NATIVE_PX * 2), (0, 0, 0, 0))
+    try:
+        ImageDraw.Draw(tile).text(
+            (EMOJI_NATIVE_PX // 4, EMOJI_NATIVE_PX // 4), cluster, font=font, embedded_color=True
+        )
+    except Exception:
+        return None
+
+    bounds = tile.getbbox()
+    if bounds is None:
+        return None
+    glyph = tile.crop(bounds)
+    width = max(1, round(glyph.width * height / glyph.height))
+    return glyph.resize((width, height), Image.Resampling.LANCZOS)
+
+
+def _segments(text: str) -> list[tuple[bool, str]]:
+    parts = []
+    cursor = 0
+    for match in EMOJI_PATTERN.finditer(text):
+        if match.start() > cursor:
+            parts.append((False, text[cursor:match.start()]))
+        parts.append((True, match.group()))
+        cursor = match.end()
+    if cursor < len(text):
+        parts.append((False, text[cursor:]))
+    return parts
+
+
+def _emoji_clusters(text: str) -> list[str]:
+    clusters = []
+    for character in text:
+        if clusters and character in "\ufe0f\u200d":
+            clusters[-1] += character
+        elif clusters and clusters[-1].endswith("\u200d"):
+            clusters[-1] += character
+        else:
+            clusters.append(character)
+    return clusters
+
+
+def _rich_width(draw: ImageDraw.ImageDraw, text: str, font) -> float:
+    height = font.getmetrics()[0]
+    total = 0.0
+    for is_emoji, chunk in _segments(text):
+        if not is_emoji:
+            total += draw.textlength(chunk, font=font)
+            continue
+        for cluster in _emoji_clusters(chunk):
+            tile = _emoji_tile(cluster, height)
+            if tile is not None:
+                total += tile.width + 3
+    return total
+
+
+def _draw_rich_text(canvas: Image.Image, draw: ImageDraw.ImageDraw, position, text: str, font, fill) -> None:
+    x, y = position
+    height = font.getmetrics()[0]
+    for is_emoji, chunk in _segments(text):
+        if not is_emoji:
+            draw.text((x, y), chunk, font=font, fill=fill)
+            x += draw.textlength(chunk, font=font)
+            continue
+        for cluster in _emoji_clusters(chunk):
+            tile = _emoji_tile(cluster, height)
+            if tile is None:
+                continue
+            canvas.alpha_composite(tile, (int(x), int(y)))
+            x += tile.width + 3
 
 
 @lru_cache(maxsize=8)
@@ -48,7 +150,7 @@ def _wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, 
     current_line = ""
     for word in words:
         candidate = f"{current_line} {word}".strip()
-        if current_line and draw.textbbox((0, 0), candidate, font=font)[2] > max_width:
+        if current_line and _rich_width(draw, candidate, font) > max_width:
             lines.append(current_line)
             current_line = word
         else:
@@ -82,10 +184,13 @@ def render_tracker_image(description: str, fields: list[tuple[str, str]], footer
     image_height = max(760, rows_top + sum(row_heights) + footer_height)
     image_size = (IMAGE_WIDTH, image_height)
 
-    background = ImageOps.fit(
-        Image.open(BACKGROUND_PATH).convert("RGBA"),
-        image_size,
-        method=Image.Resampling.LANCZOS,
+    source = Image.open(BACKGROUND_PATH).convert("RGBA")
+    # Cover fills the frame, then the contained copy sits on top so the whole artwork stays visible.
+    background = ImageOps.fit(source, image_size, method=Image.Resampling.LANCZOS)
+    inset = ImageOps.contain(source, image_size, method=Image.Resampling.LANCZOS)
+    background.alpha_composite(
+        inset,
+        ((image_size[0] - inset.width) // 2, (image_size[1] - inset.height) // 2),
     )
     background.putalpha(62)
     canvas = Image.new("RGBA", image_size, (9, 20, 31, 0))
@@ -127,11 +232,13 @@ def render_tracker_image(description: str, fields: list[tuple[str, str]], footer
         draw.text((HORIZONTAL_PADDING, row_y), "No settled plays yet.", font=row_font, fill=muted)
     for lines, row_height in zip(wrapped_rows, row_heights):
         for line_index, line in enumerate(lines):
-            draw.text(
+            _draw_rich_text(
+                canvas,
+                draw,
                 (HORIZONTAL_PADDING + 8, row_y + 4 + line_index * 36),
                 line,
-                font=row_font,
-                fill=white,
+                row_font,
+                white,
             )
         row_y += row_height
 
