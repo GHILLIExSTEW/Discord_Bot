@@ -726,7 +726,9 @@ class ConfirmImageView(discord.ui.View):
                 return
             payload["image_url"] = self.parsed.get("image_url")
             message = await publish_play_message(interaction, payload)
-            await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], message.id)
+            # Reactions are tracked on the player's original post in the official channel.
+            tracked_message_id = self.source_message_id or message.id
+            await asyncio.to_thread(official_play_service.attach_message_id, payload["play_id"], tracked_message_id)
             await send_confirmation_message(interaction, payload)
             if interaction.message is not None:
                 await interaction.message.delete()
