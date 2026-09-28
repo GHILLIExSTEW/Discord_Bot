@@ -116,8 +116,18 @@ def play_post_target() -> tuple[str, int | None]:
     return "CONFIRMATION_CHANNEL_ID", CONFIRMATION_CHANNEL_ID
 
 
-async def publish_play_message(interaction: discord.Interaction, payload: dict) -> discord.Message:
-    setting_name, channel_id = play_post_target()
+def official_post_target() -> tuple[str, int | None]:
+    if testing_enabled:
+        return "TEST_CHANNEL_ID", TEST_CHANNEL_ID
+    return "OFFICIAL_CHANNEL_ID", OFFICIAL_CHANNEL_ID
+
+
+async def publish_play_message(
+    interaction: discord.Interaction,
+    payload: dict,
+    target: tuple[str, int | None] | None = None,
+) -> discord.Message:
+    setting_name, channel_id = target or play_post_target()
     channel = await resolve_channel(channel_id, setting_name, required=True)
     embed = build_play_embed(payload)
     embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
@@ -513,7 +523,7 @@ async def record_modal_play(
 
     logger.info("play_webhook_start interaction=%s", interaction.id)
     try:
-        message = await publish_play_message(interaction, payload)
+        message = await publish_play_message(interaction, payload, official_post_target())
     except Exception as exc:
         await interaction.followup.send(f"Could not publish the play: {exc}", ephemeral=True)
         return

@@ -120,6 +120,42 @@ def test_play_card_posts_to_test_channel_while_testing(monkeypatch):
     assert len(target_channel.sent) == 1
 
 
+def test_manual_play_embed_posts_to_official_channel(monkeypatch):
+    target_channel = CapturingChannel()
+    requested_channel_ids = []
+
+    async def fetch_channel(channel_id):
+        requested_channel_ids.append(channel_id)
+        return target_channel
+
+    monkeypatch.setattr(bot_module, "OFFICIAL_CHANNEL_ID", 303)
+    monkeypatch.setattr(bot_module, "CONFIRMATION_CHANNEL_ID", 101)
+    monkeypatch.setattr(bot_module, "TEST_CHANNEL_ID", 202)
+    monkeypatch.setattr(bot_module, "testing_enabled", False)
+    monkeypatch.setattr(bot_module.bot, "get_channel", lambda channel_id: None)
+    monkeypatch.setattr(bot_module.bot, "fetch_channel", fetch_channel)
+    interaction = SimpleNamespace(
+        user=SimpleNamespace(
+            display_name="Test User",
+            display_avatar=SimpleNamespace(url="https://example.com/avatar.png"),
+        ),
+    )
+    payload = {
+        "play_id": 12,
+        "summary": "1u • 1-leg • +100",
+        "units": 1,
+        "legs": 1,
+        "odds": 100,
+        "to_win": 1,
+        "play_text": "Selection (+100)",
+    }
+
+    asyncio.run(bot_module.publish_play_message(interaction, payload, bot_module.official_post_target()))
+
+    assert requested_channel_ids == [303]
+    assert len(target_channel.sent) == 1
+
+
 def test_play_embed_shows_tracking_details_without_team():
     embed = bot_module.build_play_embed({
         "play_id": 42,
