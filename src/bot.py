@@ -2,14 +2,14 @@ import asyncio
 import logging
 import re
 import uuid
-from datetime import datetime, time as datetime_time, timedelta, timezone
+from datetime import date, datetime, time as datetime_time, timedelta, timezone
 from io import BytesIO
 from zoneinfo import ZoneInfo
 
 import discord
 from discord.ext import commands, tasks
 
-from src.config import APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, OPERATOR_ROLE_IDS, PARTIAL_REACTION, RESULT_CHANNEL_ID, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, TRACKING_CHANNEL_ID, VOID_REACTION, WIN_REACTION
+from src.config import APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, OPERATOR_ROLE_IDS, PARTIAL_REACTION, RESULT_CHANNEL_ID, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, TRACKER_START_DATE, TRACKING_CHANNEL_ID, VOID_REACTION, WIN_REACTION
 from src.services.official_play_service import OfficialPlayService
 from src.services.supabase_service import supabase_service
 from src.services.team_ranking_service import TeamRankingService
@@ -45,6 +45,7 @@ official_play_service = OfficialPlayService()
 team_ranking_service = TeamRankingService()
 play_service = PlayService()
 testing_enabled = TESTING
+tracker_start_date = date.fromisoformat(TRACKER_START_DATE) if TRACKER_START_DATE else None
 REACTION_RESULTS = {
     WIN_REACTION: "win",
     LOSS_REACTION: "loss",
@@ -212,7 +213,12 @@ def parse_tracker_time(value: str, timezone_name: str) -> datetime:
     return parsed.astimezone(ZoneInfo(timezone_name))
 
 
-def build_official_tracker_embed(plays: list[dict], users: list[dict], now: datetime | None = None) -> tuple[discord.Embed, list[str]]:
+def build_official_tracker_embed(
+    plays: list[dict],
+    users: list[dict],
+    now: datetime | None = None,
+    cutoff: date | None = None,
+) -> tuple[discord.Embed, list[str]]:
     timezone_name = TRACKER_TIMEZONE.key
     now = now or datetime.now(ZoneInfo(timezone_name))
     if now.tzinfo is None:
@@ -232,6 +238,12 @@ def build_official_tracker_embed(plays: list[dict], users: list[dict], now: date
 
     def in_period(play: dict, start: datetime) -> bool:
         return start <= settled_time(play) <= now
+
+    cutoff = cutoff if cutoff is not None else tracker_start_date
+    if cutoff is not None:
+        cutoff_start = datetime.combine(cutoff, datetime_time.min, tzinfo=ZoneInfo(timezone_name))
+        settled = [play for play in settled if settled_time(play) >= cutoff_start]
+        pending = [play for play in pending if settled_time(play) >= cutoff_start]
 
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -1037,6 +1049,43 @@ async def testing_command(interaction: discord.Interaction, enabled: bool):
     state = "enabled" if enabled else "disabled"
     await interaction.response.send_message(f"Image testing is now **{state}**.", ephemeral=True)
     logger.info("play_modal_open_complete interaction=%s", interaction.id)
+
+
+@bot.tree.command(name="tracker_start", description="Only count plays settled on or after a date")
+@discord.app_commands.describe(date_value="YYYY-MM-DD, or 'clear' to count every play, or 'show' to view the current setting")
+async def tracker_start_command(interaction: discord.Interaction, date_value: str):
+    global tracker_start_date
+    requested = date_value.strip().lower()
+
+    if requested == "show":
+        current = tracker_start_date.isoformat() if tracker_start_date else "none (counting all plays)"
+        await interaction.response.send_message(f"Tracker start date: **{current}**", ephemeral=True)
+        return
+
+    is_operator = any(role.id in OPERATOR_ROLE_IDS for role in getattr(interaction.user, "roles", []))
+    is_manager = bool(interaction.guild and interaction.user.guild_permissions.manage_guild)
+    if not (is_operator or is_manager):
+        await interaction.response.send_message("Only operators or server managers can change the tracker start date.", ephemeral=True)
+        return
+
+    if requested in {"clear", "none", "off"}:
+        tracker_start_date = None
+        await interaction.response.send_message("Tracker start date cleared. All plays now count.", ephemeral=True)
+        logger.info("tracker_start_date_cleared user=%s", interaction.user.id)
+        return
+
+    try:
+        parsed = date.fromisoformat(requested)
+    except ValueError:
+        await interaction.response.send_message("Use the format YYYY-MM-DD, or 'clear' / 'show'.", ephemeral=True)
+        return
+
+    tracker_start_date = parsed
+    await interaction.response.send_message(
+        f"Tracker now counts plays settled on or after **{parsed.isoformat()}** (Eastern). Run /update_tracker to refresh.",
+        ephemeral=True,
+    )
+    logger.info("tracker_start_date_set value=%s user=%s", parsed.isoformat(), interaction.user.id)
 
 
 @bot.tree.command(name="settle", description="Settle an official play")
