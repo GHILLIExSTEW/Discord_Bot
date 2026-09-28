@@ -91,7 +91,11 @@ def build_settled_play_embed(message: discord.Message, play_id: int, result: str
 async def update_play_message(message: discord.Message | None, play_id: int, result: str) -> None:
     if message is None:
         return
-    await message.edit(embed=build_settled_play_embed(message, play_id, result))
+    try:
+        await message.edit(embed=build_settled_play_embed(message, play_id, result))
+    except discord.HTTPException:
+        # The play is already settled in the database; a card the bot cannot edit must not abort the caller.
+        logger.warning("play_card_edit_failed play=%s message=%s", play_id, message.id)
 
 
 async def fetch_guild_message(guild: discord.Guild | None, message_id: int) -> discord.Message | None:
