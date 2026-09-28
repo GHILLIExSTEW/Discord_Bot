@@ -45,7 +45,7 @@ def test_confirmation_uses_dedicated_channel(monkeypatch):
     assert followup.sent[0]["ephemeral"] is True
 
 
-def test_play_card_posts_to_official_channel_not_interaction_channel(monkeypatch):
+def test_play_card_posts_to_confirmation_channel_not_interaction_channel(monkeypatch):
     target_channel = CapturingChannel()
     interaction_channel = CapturingChannel()
     requested_channel_ids = []
@@ -56,6 +56,7 @@ def test_play_card_posts_to_official_channel_not_interaction_channel(monkeypatch
 
     monkeypatch.setattr(bot_module, "OFFICIAL_CHANNEL_ID", 303)
     monkeypatch.setattr(bot_module, "CONFIRMATION_CHANNEL_ID", 101)
+    monkeypatch.setattr(bot_module, "TEST_CHANNEL_ID", 202)
     monkeypatch.setattr(bot_module, "testing_enabled", False)
     monkeypatch.setattr(bot_module.bot, "get_channel", lambda channel_id: None)
     monkeypatch.setattr(bot_module.bot, "fetch_channel", fetch_channel)
@@ -78,12 +79,12 @@ def test_play_card_posts_to_official_channel_not_interaction_channel(monkeypatch
 
     asyncio.run(bot_module.publish_play_message(interaction, payload))
 
-    assert requested_channel_ids == [303]
+    assert requested_channel_ids == [101]
     assert len(target_channel.sent) == 1
     assert interaction_channel.sent == []
 
 
-def test_play_card_posts_to_confirmation_channel_while_testing(monkeypatch):
+def test_play_card_posts_to_test_channel_while_testing(monkeypatch):
     target_channel = CapturingChannel()
     requested_channel_ids = []
 
@@ -93,6 +94,7 @@ def test_play_card_posts_to_confirmation_channel_while_testing(monkeypatch):
 
     monkeypatch.setattr(bot_module, "OFFICIAL_CHANNEL_ID", 303)
     monkeypatch.setattr(bot_module, "CONFIRMATION_CHANNEL_ID", 101)
+    monkeypatch.setattr(bot_module, "TEST_CHANNEL_ID", 202)
     monkeypatch.setattr(bot_module, "testing_enabled", True)
     monkeypatch.setattr(bot_module.bot, "get_channel", lambda channel_id: None)
     monkeypatch.setattr(bot_module.bot, "fetch_channel", fetch_channel)
@@ -114,7 +116,7 @@ def test_play_card_posts_to_confirmation_channel_while_testing(monkeypatch):
 
     asyncio.run(bot_module.publish_play_message(interaction, payload))
 
-    assert requested_channel_ids == [101]
+    assert requested_channel_ids == [202]
     assert len(target_channel.sent) == 1
 
 

@@ -112,8 +112,8 @@ async def fetch_guild_message(guild: discord.Guild | None, message_id: int) -> d
 
 def play_post_target() -> tuple[str, int | None]:
     if testing_enabled:
-        return "CONFIRMATION_CHANNEL_ID", CONFIRMATION_CHANNEL_ID
-    return "OFFICIAL_CHANNEL_ID", OFFICIAL_CHANNEL_ID
+        return "TEST_CHANNEL_ID", TEST_CHANNEL_ID
+    return "CONFIRMATION_CHANNEL_ID", CONFIRMATION_CHANNEL_ID
 
 
 async def publish_play_message(interaction: discord.Interaction, payload: dict) -> discord.Message:
@@ -146,10 +146,9 @@ def fetch_official_tracker_rows() -> tuple[list[dict], list[dict]]:
 
 
 def settlement_channel_settings() -> list[tuple[str, int | None]]:
-    settings = [("OFFICIAL_CHANNEL_ID", OFFICIAL_CHANNEL_ID)]
-    if testing_enabled:
-        settings.append(("CONFIRMATION_CHANNEL_ID", CONFIRMATION_CHANNEL_ID))
-    return [(name, channel_id) for name, channel_id in settings if channel_id]
+    # Reactions only count where play cards are posted, plus the official channel for cards published there.
+    settings = [play_post_target(), ("OFFICIAL_CHANNEL_ID", OFFICIAL_CHANNEL_ID)]
+    return [(name, channel_id) for name, channel_id in dict.fromkeys(settings) if channel_id]
 
 
 def user_can_settle(user, owner_id: str, guild: discord.Guild | None) -> bool:
