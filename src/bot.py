@@ -278,7 +278,7 @@ def build_official_tracker_embed(
         name = names.get(user_id, user_id)
         rate = data["win_count"] / total * 100 if total else 0
         net_units = data["wins"] - data["losses"]
-        breakdown.append(f"**{name}** · {data['win_count']}-{data['loss_count']} · {rate:.0f}%")
+        breakdown.append(f"**{name}** · {data['win_count']}-{data['loss_count']}")
         if index < 3:
             top_lines.append(f"{medals[index]} **{name}** — **{net_units:+g} units**\n{data['win_count']}-{data['loss_count']} record | {rate:.0f}% win rate")
 
