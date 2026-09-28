@@ -125,10 +125,10 @@ def build_pdf():
         p("Command reference and results guide", "Subtitle"),
     ]
 
-    story += section("📷", "Recording a play from an image", "Post your betting-slip image in the plays channel. No command is needed. The bot reads the selections, odds, and units, then shows you a private preview. Press <b>Confirm and record</b> to post the play card publicly. If the slip does not show your units, press <b>Enter units</b> first, then confirm.")
-    story += section("✍️", "Recording a play manually", "Use <b>/play</b> when you have no image. You need an official role and must run it in the official plays channel. Enter your units, the number of legs, the Leg 1 selection, the Leg 1 odds, and an optional team. Multi-leg plays prompt for each remaining leg one at a time, and the combined odds are calculated automatically when the final leg is submitted.")
+    story += section("📷", "Recording a play from an image", "Post your betting-slip image in the official plays channel. No command is needed. The bot reads the selections, odds, and units, then shows you a private preview. Press <b>Confirm and record</b> to record the play. If the slip does not show your units, press <b>Enter units</b> first, then confirm. Your original image post is the message that gets tracked, so react on that post to settle the play. The confirmation card, with the <b>Edit bet</b> button, is sent to the confirmation channel.")
+    story += section("✍️", "Recording a play manually", "Use <b>/play</b> when you have no image. You need an official role and must run it in the official plays channel. Enter your units, the number of legs, the Leg 1 selection, the Leg 1 odds, and an optional team. Multi-leg plays prompt for each remaining leg one at a time, and the combined odds are calculated automatically when the final leg is submitted. The bot posts a bet embed to the official plays channel, and that embed is what you react to.")
 
-    story += section("✅", "Settling a play with reactions", "React directly on the play card in the official channel. The play owner and anyone holding an operator role can settle. Reactions posted in any other channel are ignored.")
+    story += section("✅", "Settling a play with reactions", "React directly on the tracked message in the official plays channel. The play owner and anyone holding an operator role can settle. Reactions posted in any other channel are ignored.")
     story += command_table(
         [
             ["✅", "Win", "Settles immediately and updates the card"],
@@ -157,7 +157,7 @@ def build_pdf():
     story += section("🔒", "Commands for officials", "")
     story += command_table(
         [
-            ["/settle play_id: result:", "Settles a play. Accepts win, loss, void, partial, or regraded. Use this for partials and for any play whose card was deleted. The play ID is the number shown on the card as &quot;Play #43&quot;."],
+            ["/settle play_id: result:", "Settles a play. Accepts win, loss, void, partial, or regraded. Use this for partials and for any play whose message was deleted. The play ID is the number shown on the card as &quot;Play #43&quot;."],
             ["/regrade play_id: legs_left: odds: [note:]", "Use when a leg voids and the rest of the parlay stands. Sets the remaining leg count and the new odds. Regraded plays count as zero units."],
         ],
         ["Command", "What it does"],
@@ -170,7 +170,7 @@ def build_pdf():
         [
             ["/tracker_start date_value:YYYY-MM-DD", "Counts only plays settled on or after this date, for example 2026-09-28. Everything earlier is hidden from the tracker but is never deleted."],
             ["/tracker_start date_value:clear", "Counts every play again."],
-            ["/testing enabled:true", "Sends parsed plays to the lab channel without writing to the database."],
+            ["/testing enabled:true", "Sends parsed plays to the test channel without writing to the database."],
             ["/testing enabled:false", "Returns to normal recording."],
         ],
         ["Command", "What it does"],
@@ -180,7 +180,7 @@ def build_pdf():
 
     story += section("📊", "How units are scored", "Wins pay the true price of the bet. Risking 2 units at +250 and winning returns <b>+5 units</b>; the same 2 units at −110 returns <b>+1.82 units</b>. A loss always costs the full amount risked. Voids and regrades count as zero. Your record displays as wins-losses, and the net unit figure reflects actual profit rather than a flat win count.")
 
-    story += section("\U0001F6A8", "If something does not appear", "Check that the bot is online, that you hold the required official role, and that you are posting in the correct channel. Plays only record in the official plays channel, and only reactions in that channel settle a play. If a result will not settle by reaction, ask an official to run <b>/settle</b>. After a deployment, pull the latest code and restart the service.")
+    story += section("\U0001F6A8", "If something does not appear", "Check that the bot is online, that you hold the required official role, and that you are posting in the correct channel. Plays only record from the official plays channel, and only reactions in that channel settle a play. If a result will not settle by reaction, ask an official to run <b>/settle</b>. After a deployment, pull the latest code and restart the service.")
 
     doc.build(story)
 
