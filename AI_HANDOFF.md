@@ -98,9 +98,11 @@ Discord remains the live alert/conversation channel at first. Do not duplicate e
 
 ### Current Website State
 
-The first public-site prototype is implemented in `web/src/App.tsx`, `App.css`, and `index.css`. It includes a responsive home page, slate summary, reveal interaction, results preview filters, capper cards, proposed plans, methodology, and community section. Existing graphic copied to `web/public/growth.png`.
+The routed public site is implemented in `web/src/Site.tsx`, `App.css`, and `index.css`. Routes include the landing dashboard, results ledger, authorized capper directory, dynamic `/cappers/:capperId` analytics profiles, membership, methodology, and community pages. `web/public/_redirects` enables direct Amplify requests to client-side routes. Existing graphic copied to `web/public/growth.png`.
 
-**Critical:** current result rows, slate counts, date, cappers, and play examples in `web/src/App.tsx` are hard-coded mock/demo content. They are not verified records and must not be represented as genuine historical performance. Before publishing, either replace with clearly identified approved sample content or connect the page to verified Supabase-backed data and ensure correct dates/timezones. The page currently labels the ledger as preview data; preserve or strengthen the disclosure until real data is integrated.
+The public roster and settled results are read from Supabase views defined in `src/database/capper_roster.sql`. Apply that SQL before enabling the frontend data connection. Configure only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Amplify; never place the service-role key in the browser. The Discord bot syncs names and role membership at startup and on member role/name/removal events. Enable the Discord Server Members intent. Every role ID in `OPERATOR_ROLE_IDS` authorizes a public capper profile; `MEMBER_ROLE_ID` is for general membership and does not grant capper status. Losing an operator role or leaving Discord removes the profile and analytics, while historical results remain attributed as “Former capper.”
+
+Landing-page counts and recent results are loaded from the public Supabase views. Locked current plays are not exposed in those views. Proposed plan prices remain unapproved and must not be presented as final commercial terms.
 
 The plan buttons currently use a support email placeholder, and Discord invite is also a placeholder. Do not claim checkout, login, email delivery, live feed, membership role automation, or actual invite integration exists. Keep payment disabled until provider approval.
 

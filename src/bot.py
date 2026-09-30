@@ -16,6 +16,7 @@ from src.services.team_ranking_service import TeamRankingService
 from src.services.play_service import PlayService
 from src.services.image_play_service import image_play_service
 from src.services.diagnostic_service import diagnostic_service
+from src.services.capper_roster_service import capper_roster_service
 from src.services.tracker_image_service import render_tracker_image
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -412,8 +413,51 @@ async def before_hourly_tracker_update() -> None:
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
+    guilds = [bot.get_guild(GUILD_ID)] if GUILD_ID else bot.guilds
+    for guild in filter(None, guilds):
+        try:
+            members = [member async for member in guild.fetch_members(limit=None)]
+            roster = [{
+                "discord_user_id": str(member.id),
+                "display_name": member.display_name,
+                "role_ids": {role.id for role in member.roles},
+            } for member in members]
+            count = await asyncio.to_thread(capper_roster_service.sync_guild_members, roster)
+            logger.info("capper_roster_synced guild=%s authorized_members=%s", guild.id, count)
+        except Exception:
+            logger.exception("capper_roster_sync_failed guild=%s", guild.id)
     if not hourly_tracker_update.is_running():
         hourly_tracker_update.start()
+
+
+@bot.event
+async def on_member_update(before: discord.Member, after: discord.Member):
+    if before.roles == after.roles and before.display_name == after.display_name:
+        return
+    try:
+        is_authorized = await asyncio.to_thread(
+            capper_roster_service.sync_member,
+            str(after.id),
+            after.display_name,
+            {role.id for role in after.roles},
+        )
+        logger.info("capper_roster_member_updated user=%s authorized=%s", after.id, is_authorized)
+    except Exception:
+        logger.exception("capper_roster_member_update_failed user=%s", after.id)
+
+
+@bot.event
+async def on_member_remove(member: discord.Member):
+    try:
+        await asyncio.to_thread(
+            capper_roster_service.sync_member,
+            str(member.id),
+            member.display_name,
+            set(),
+        )
+        logger.info("capper_roster_member_removed user=%s", member.id)
+    except Exception:
+        logger.exception("capper_roster_member_remove_failed user=%s", member.id)
 
 
 @bot.event
