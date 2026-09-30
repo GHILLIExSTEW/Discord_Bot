@@ -2,6 +2,7 @@
 __pycache__/
 .pytest_cache/
 .env
+.env.local
 *.db
 *.sqlite3
 .DS_Store

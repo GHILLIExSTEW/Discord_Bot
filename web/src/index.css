@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+:root {
+  font-family: 'IBM Plex Sans', sans-serif;
+  color: #171915;
+  background: #f3f1e9;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --ink: #171915;
+  --paper: #f3f1e9;
+  --white: #fffef9;
+  --green: #0e5d3a;
+  --amber: #f4b942;
+  --coral: #dc5b43;
+  --line: rgba(23, 25, 21, 0.18);
+  --muted: #696b64;
+  --display: 'Barlow Condensed', sans-serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: linear-gradient(rgba(23, 25, 21, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(23, 25, 21, 0.035) 1px, transparent 1px), var(--paper);
+  background-size: 28px 28px;
+}
+button, a { font: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+::selection { color: var(--white); background: var(--green); }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}

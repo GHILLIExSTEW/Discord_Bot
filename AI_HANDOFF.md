@@ -1,0 +1,162 @@
+# AI Handoff: Playmaker Picks
+
+Use this document to onboard a new AI assistant to the product, repository, decisions, risks, and next work. Read it together with `LAUNCH_PLAN.md` before changing code. The launch plan is the operational checklist; this file preserves the conversation context and distinguishes confirmed decisions from ideas that still need owner approval.
+
+## Product and Owner Context
+
+- Legal entity name supplied by the owner: **Playmaker Sports Analytics, LLC**.
+- Public brand/community: **Playmaker Picks**.
+- Domain owned by the owner: `playmakersportsanalytics.com`.
+- Owner says they are the sole owner. Revenue should be deposited into and retained in the business account; the owner decides whether to spend, reinvest, or distribute profit.
+- Do not describe collaborators/admins/cappers as equity partners unless the owner later establishes that in writing. Capper/admin payments, if any, need a separate documented arrangement.
+- Product: publish sports analysis and informational picks for people to follow. The business says it does not accept, place, transmit, or hold bets.
+- The website is intended to be built in this private repository and hosted with AWS Amplify. The Discord bot stays on the existing private Proxmox host.
+- Current workspace has appeared as `/workspaces/Discord_Bot`; the owner said the repo was renamed. Do not assume this path remains accurate after reopening. Discover the active repository root before using absolute paths.
+
+## Important Scope and Risk Boundaries
+
+- This is not a sportsbook product. Do not add user bet placement, bet custody, member-funded cash pools, pooled stakes, or a feature that matches members' wagers.
+- Do not describe legal or payment rules as a loophole or guarantee that picks are exempt from regulation. Sports-analysis services can still face state-specific laws, advertising rules, age restrictions, promotion requirements, and processor rules. Provider policy can be stricter than law.
+- Before taking payments, require written approval from the selected provider for the accurately described paid sports-analysis/picks service and obtain its complete fee schedule. Stripe's public restricted-business materials have listed sports forecasting/odds-making and some gambling-related advisory services; exact applicability needs written review. Do not assume Stripe is usable.
+- Prior informal fee figures for Whop, DubClub, Patreon, and Stripe were not conclusively verified in the conversation. Do not repeat them as confirmed facts. Compare current written schedules, including platform, processing, payout, dispute, refund, and buyer fees.
+- Do not accept member-funded cash pools. The provisional promotion approach is company-funded prizes, free entry, no purchase advantage, and published rules reviewed for applicable jurisdictions. Temporary premium access can be a prize, with expiration and no cash value; confirm promotion rules before launch.
+- Business and legal guidance discussed with the owner was general planning, not legal, tax, or accounting advice. Avoid drafting final legal policies as if attorney-approved.
+- Avoid claims such as “lock,” “guaranteed winner,” “risk-free,” or promised profit. No daily play volume should be guaranteed; no-play days are possible.
+
+## Product Decisions and Proposals
+
+### Confirmed Product Direction
+
+- Public experience should combine a **bold, energetic public face** with a **calm, restrained private clubhouse**.
+- Show the full verified historical record publicly. Trust through evidence is a core acquisition strategy.
+- Public capper treatment: brief, strong summaries. Inside the clubhouse: full profiles and records.
+- The product should support both sport-specific browsing and capper-based feeds.
+- The owner selected a full web community as a desired direction, in addition to Discord. Build a phased product that can support durable discussion on the site, but discuss moderation, scope, and timing before creating a full social network.
+- Visitors should see a daily slate overview and a designated free play. Live selections must be protected server-side; never send locked paid selection text to the browser and merely blur or hide it with CSS.
+- First-time visitors care about three actions: verified results, free Discord/community access, and membership plans. Evidence should lead visually while the other actions remain easy to find.
+
+### Proposed Memberships (Not Final Until Approved)
+
+`LAUNCH_PLAN.md` currently proposes:
+
+- Free: public verified record, weekly recap, announcements, occasional free analysis.
+- Starter: `$9.99/month`, typically 1-2 curated plays on active slates, standard alerts, tracking.
+- All Access: `$19.99/month`, every approved capper's official plays, real-time alerts, analysis, archive.
+- Possible later Premium: `$34.99/month` with additional analysis, data tools, Q&A, and support.
+- Possible trial: `$5` for 7 days, then `$19.99/month`, with clear affirmative consent and provider-supported abuse prevention.
+
+These prices and the trial are planning suggestions, not confirmed final commercial terms. Get owner approval after provider fees and approval are known. Avoid weekly/lifetime plans initially. Do not suggest a specific number of plays every day; describe typical volume with a clear no-play-day caveat.
+
+### Business Name and DBA
+
+- The server display name “Playmaker Picks” alone does not necessarily require a DBA, but requirements depend on state/local law and how the name is used in commerce.
+- Consistent customer-facing disclosure proposed: “Playmaker Picks is operated by Playmaker Sports Analytics, LLC.”
+- Check state/county DBA rules before charging, contracting, invoicing, or banking under the brand. Do not give a universal legal conclusion.
+
+## Site Direction and Information Architecture
+
+### Public Arena
+
+- Homepage: strong Playmaker Picks identity, current slate status, verified performance, a sample/free play, cappers, membership links, and community call to action.
+- Results ledger: complete verified history, filters for sport/capper/date/play type/card, and transparent methodology.
+- Sport pages and capper feeds/profiles.
+- Public capper summaries; detailed biographies, notes, analysis, and full profile views are member-facing.
+- Plans, how it works, methodology/grading, community preview, responsible-play notice, support, and legal pages.
+
+### Private Clubhouse (Future Phases)
+
+- Today: personalized active-play feed.
+- Following: sports and cappers.
+- Performance: detailed capper/sport analytics.
+- Discussion: durable threads tied to plays, cappers, or analysis.
+- Cappers: full profiles, records, schedules, notes.
+- Archive: searchable analysis.
+- Account: plan, expiration, Discord link, billing portal, privacy, support.
+
+Discord remains the live alert/conversation channel at first. Do not duplicate every Discord feature on the website at launch; phase the web-community feature behind a clear scope and moderation plan.
+
+### Visual Language
+
+- Public pages: expressive condensed display type, sports photography or real sports/product imagery, strong scoreboard/editorial rhythm, black/white/field green, amber for pending/live, and red only for negative results.
+- Clubhouse: quiet neutral backdrop, dense but readable information, compact consistent controls.
+- Do not make this look like a sportsbook/casino: avoid chips, cash, slot imagery, “wager now” language, fake betting slips, or implied bet placement.
+- Respect the existing site implementation and design tokens unless intentionally revising them after discussion. Avoid gradient-heavy generic templates.
+- Ensure mobile and desktop layouts both work, with no clipped text, overlapping controls, or horizontal page overflow.
+
+## Technical Architecture
+
+### Current Repository
+
+- Existing Discord bot: `src/`, Python, `discord.py`, Supabase.
+- Existing play/results schema: `src/database/schema.sql`.
+- Existing bot tests: `tests/`.
+- Website: `web/`, React 19 + TypeScript + Vite 8, ESLint, Lucide icons.
+- Amplify config: root `amplify.yml`, configured with app root `web` and artifacts `dist/`.
+- Product roadmap: `LAUNCH_PLAN.md`.
+- AI context/handoff: `AI_HANDOFF.md`.
+- Keep the bot private on Proxmox. Amplify deploys only the website build artifacts. A private Git repo does not make frontend code secret after browser delivery.
+
+### Current Website State
+
+The first public-site prototype is implemented in `web/src/App.tsx`, `App.css`, and `index.css`. It includes a responsive home page, slate summary, reveal interaction, results preview filters, capper cards, proposed plans, methodology, and community section. Existing graphic copied to `web/public/growth.png`.
+
+**Critical:** current result rows, slate counts, date, cappers, and play examples in `web/src/App.tsx` are hard-coded mock/demo content. They are not verified records and must not be represented as genuine historical performance. Before publishing, either replace with clearly identified approved sample content or connect the page to verified Supabase-backed data and ensure correct dates/timezones. The page currently labels the ledger as preview data; preserve or strengthen the disclosure until real data is integrated.
+
+The plan buttons currently use a support email placeholder, and Discord invite is also a placeholder. Do not claim checkout, login, email delivery, live feed, membership role automation, or actual invite integration exists. Keep payment disabled until provider approval.
+
+### Security Architecture
+
+- Keep all secrets outside Git and outside the frontend bundle. Any `VITE_*` variable is public.
+- Do not put Discord bot token, Supabase service role, provider secret, or webhook secret in frontend code or Amplify public variables.
+- Use a protected backend endpoint (AWS Lambda, Supabase Edge Function, or approved server-side service) for signed payment webhooks and privileged entitlement changes.
+- Supabase should be the system of record for membership entitlements; Discord roles are only a projection of entitlement state.
+- Apply row-level security before exposing data to the site. Public result data may be served only if it is intended for public display. Locked live picks must be withheld server-side for unauthorized users.
+- Use separate least-privilege credentials and staging/production configuration.
+
+### Membership and Discord Integration (Not Yet Built)
+
+- Do not overload existing `users.role` to represent billing. Add separate tables/migrations for plans, linked accounts, subscriptions, entitlements, provider webhook events, entitlement audit events, and Discord role-sync state.
+- Webhooks must verify the raw-body signature, persist unique provider event IDs, and process idempotently.
+- Handle purchase, renewal, upgrade/downgrade, cancel-at-period-end, expiration, refund, chargeback, admin grant/revoke, and role reconciliation.
+- Cancellation should preserve entitlement through paid-through time if the provider/business terms say so. Refund/chargeback rules must match approved policy/provider behavior.
+- Proposed roles: `Visitor`, `Free Member`, `Starter`, `All Access`, future `Premium`, `Founding Member`, `Promotional Access`, `Capper`, `Administrator`. Validate actual guild role IDs and permission setup before wiring code.
+- Website authentication remains an open implementation decision. Owner floated a hybrid: free members use email plus Discord; paid billing is managed by the provider, then linked to an application account/Discord. Do not assume a particular auth product or final flow without checking owner/provider requirements.
+
+## Operations and Promotions
+
+- Start with at most three cappers and a documented trial; the plan suggests 30 days and 75-100 graded plays, but owner should approve criteria.
+- Timestamp plays with line and odds. Preserve losses. Corrections must leave an audit trail.
+- Keep capper status/compensation separate from member subscription entitlements. Use written contractor terms before compensation.
+- Complimentary membership prizes should be time-limited, nontransferable, have no cash value, and extend an existing member's access rather than overlap if applicable.
+- Random giveaway rules/free-entry mechanisms need proper review; a disclaimer alone does not make a promotion compliant.
+
+## Current Worktree and Verification (At Handoff Creation)
+
+- Current branch: `main`.
+- Changes present: modified `.gitignore`; untracked `LAUNCH_PLAN.md`, `amplify.yml`, and `web/`.
+- No changes have been committed.
+- Website checks passed: `cd web && npm run build`; `cd web && npm run lint`.
+- Playwright Chromium inspection passed at 1440x1000 and 390x844: no horizontal overflow, broken images, console errors, or runtime exceptions. Mobile menu, results filtering, and free-play reveal were exercised.
+- Local dev URL used: `http://localhost:5173/`. If not running after workspace reopen, start it from the website directory with `npm run dev -- --host 0.0.0.0`.
+- Playwright is installed as a development dependency. Browser Linux shared libraries were needed in the container; do not rerun dependency installation without checking environment first.
+
+## Recommended Next Actions
+
+1. Reconfirm active repository root and inspect `git status`; do not discard existing uncommitted work.
+2. Keep `AI_HANDOFF.md` and `LAUNCH_PLAN.md` in view while proceeding.
+3. Fix the public prototype's mock/demo data treatment before any real deployment. Do not present fabricated play history as verified.
+4. Continue public-site work: split the large one-page `App.tsx` into purposeful routes/components only as the pages become real; add public legal/methodology/pricing pages and accessible filtering.
+5. Confirm whether the existing Supabase `plays`/`users` records are safe to expose, then build a read-only, aggregated public-results API/query with appropriate RLS. Do not expose service-role credentials.
+6. Get written payment-provider approval and current full fees before enabling paid checkout or committing to provider-specific code.
+7. Resolve authentication/Discord linking, final plan pricing, trial terms, public result data scope, and web-community moderation scope with the owner.
+8. Design membership migration and server-side entitlement policy; review before applying to production.
+9. Build hosted checkout/webhooks and bot role sync only after provider approval and security review.
+10. Retest production build, lint, browser desktop/mobile, and key user flows after every substantial UI or access-control change.
+
+## Collaboration Style
+
+- Work directly and pragmatically; the owner prefers building once ideas are clear.
+- For ambiguous product questions, brainstorm with the owner instead of prematurely committing to an implementation.
+- Clearly mark which pricing, legal, provider, and policy items remain proposals.
+- Before editing, identify the owning code path and one focused check. After the first edit, run the narrow validation immediately.
+- Keep updates concise. Never commit or create branches unless explicitly asked. Never overwrite or revert user changes.
