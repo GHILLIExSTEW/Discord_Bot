@@ -33,9 +33,15 @@ type SportEvent = {
   status: string
   synced_at: string
 }
+type EventView = 'schedule' | 'scores'
+const finalEventStatuses = new Set(['FT', 'AOT', 'CANC', 'ABD', 'WO', 'COMPLETED', 'FINISHED'])
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/New_York' }).format(new Date(value))
+}
+
+function formatKickoff(value: string): string {
+  return new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }).format(new Date(value))
 }
 
 function signedUnits(value: number): string {
@@ -53,6 +59,8 @@ export default function SportPage({ slug, results, loadState }: { slug: string; 
 
 function SportPageContent({ sport, results, loadState }: { sport: (typeof sportsCatalog)[number]; results: Result[]; loadState: 'loading' | 'ready' | 'error' | 'configuration' }) {
   const [events, setEvents] = useState<SportEvent[]>([])
+  const [eventView, setEventView] = useState<EventView>('schedule')
+  const [selectedGroup, setSelectedGroup] = useState('')
   const [eventState, setEventState] = useState<'loading' | 'ready' | 'unavailable' | 'error'>(sport.feed === 'unavailable' ? 'unavailable' : 'loading')
   useEffect(() => {
     if (sport.feed === 'unavailable') return
@@ -81,7 +89,17 @@ function SportPageContent({ sport, results, loadState }: { sport: (typeof sports
   const wins = sportResults.filter((result) => result.status === 'win').length
   const losses = sportResults.filter((result) => result.status === 'loss').length
   const net = sportResults.reduce((sum, result) => sum + Number(result.net_units), 0)
-  const sortedEvents = [...events].sort((first, second) => Date.parse(first.start_at) - Date.parse(second.start_at))
+  const upcomingEvents = events.filter((event) => !finalEventStatuses.has(event.status_code.toUpperCase())).sort((first, second) => Date.parse(first.start_at) - Date.parse(second.start_at))
+  const finalEvents = events.filter((event) => finalEventStatuses.has(event.status_code.toUpperCase())).sort((first, second) => Date.parse(second.start_at) - Date.parse(first.start_at))
+  const scheduleGroups = Array.from(upcomingEvents.reduce((groups, event) => {
+    const label = event.round_name?.trim() || formatDate(event.start_at)
+    const groupEvents = groups.get(label) ?? []
+    groupEvents.push(event)
+    groups.set(label, groupEvents)
+    return groups
+  }, new Map<string, SportEvent[]>()).entries()).map(([label, groupEvents]) => ({ label, events: groupEvents }))
+  const activeGroup = scheduleGroups.some((group) => group.label === selectedGroup) ? selectedGroup : scheduleGroups[0]?.label || ''
+  const activeGroupEvents = scheduleGroups.find((group) => group.label === activeGroup)?.events || []
 
   return <main className="sport-page">
     <Link to="/" className="capper-back-link"><ArrowRight size={16} /> Home</Link>
@@ -95,18 +113,23 @@ function SportPageContent({ sport, results, loadState }: { sport: (typeof sports
       {eventState === 'loading' && <p className="results-empty">Loading {sport.name} schedule…</p>}
       {eventState === 'unavailable' && <p className="results-empty">A schedule feed is not connected for {sport.name} yet.</p>}
       {eventState === 'error' && <p className="results-empty">{sport.name} schedule is temporarily unavailable.</p>}
-      {eventState === 'ready' && sortedEvents.length === 0 && <p className="results-empty">No {sport.name} events are available in the current schedule window.</p>}
-      {eventState === 'ready' && sortedEvents.length > 0 && <div className="sport-events-grid">
-        {sortedEvents.map((event) => <article className="sport-event-card" key={event.event_id}>
-          <div className="sport-event-meta"><span>{event.league_name || sport.name}</span><time dateTime={event.start_at}>{formatDate(event.start_at)}</time></div>
-          <h3>{event.event_name}</h3>
-          {(event.home_name || event.away_name) && <div className="sport-event-teams">
-            {event.away_name && <SportEventTeam name={event.away_name} logo={event.away_logo} score={event.away_score} />}
-            {event.home_name && <SportEventTeam name={event.home_name} logo={event.home_logo} score={event.home_score} />}
-          </div>}
-          <div className="sport-event-footer"><span>{event.round_name || event.venue?.name || event.season || ''}</span><span className={`nfl-game-status${['FT', 'AOT', 'CANC', 'ABD', 'WO', 'COMPLETED', 'FINISHED'].includes(event.status_code.toUpperCase()) ? ' is-final' : ''}`}>{event.status}</span></div>
-        </article>)}
-      </div>}
+      {eventState === 'ready' && <>
+        <nav className="sport-event-tabs" aria-label={`${sport.name} data views`}>
+          <button className={eventView === 'schedule' ? 'active' : ''} type="button" onClick={() => setEventView('schedule')}>Schedule</button>
+          <button className={eventView === 'scores' ? 'active' : ''} type="button" onClick={() => setEventView('scores')}>Scores</button>
+        </nav>
+        {eventView === 'schedule' && (scheduleGroups.length ? <div className="sport-event-list">
+          <div className="sport-event-group-tabs" role="tablist" aria-label={`${sport.name} schedule groups`}>
+            {scheduleGroups.map((group) => <button key={group.label} className={activeGroup === group.label ? 'active' : ''} type="button" role="tab" aria-selected={activeGroup === group.label} onClick={() => setSelectedGroup(group.label)}>
+              <span>{group.label}</span><small>{group.events.length} events</small>
+            </button>)}
+          </div>
+          <div className="sport-events-grid" role="tabpanel" aria-label={`${activeGroup} schedule`}>
+            {activeGroupEvents.map((event) => <SportEventCard event={event} sportName={sport.name} key={event.event_id} />)}
+          </div>
+        </div> : <p className="results-empty">No upcoming {sport.name} events are available in the current schedule window.</p>)}
+        {eventView === 'scores' && (finalEvents.length ? <div className="sport-events-grid">{finalEvents.map((event) => <SportEventCard event={event} sportName={sport.name} key={event.event_id} />)}</div> : <p className="results-empty">No final {sport.name} scores are available yet.</p>)}
+      </>}
     </section>
     <div className="sport-record-metrics">
       <div><span>Settled plays</span><strong>{loadState === 'ready' ? sportResults.length : '—'}</strong></div>
@@ -169,4 +192,17 @@ function mapNflGame(game: NflGame): SportEvent {
     status: game.status_long,
     synced_at: game.synced_at,
   }
+}
+
+function SportEventCard({ event, sportName }: { event: SportEvent; sportName: string }) {
+  const isFinal = finalEventStatuses.has(event.status_code.toUpperCase())
+  return <article className="sport-event-card">
+    <div className="sport-event-meta"><span>{event.league_name || sportName}</span><time dateTime={event.start_at}>{formatKickoff(event.start_at)}</time></div>
+    <h3>{event.event_name}</h3>
+    {(event.home_name || event.away_name) && <div className="sport-event-teams">
+      {event.away_name && <SportEventTeam name={event.away_name} logo={event.away_logo} score={event.away_score} />}
+      {event.home_name && <SportEventTeam name={event.home_name} logo={event.home_logo} score={event.home_score} />}
+    </div>}
+    <div className="sport-event-footer"><span>{event.venue?.name || event.season || ''}</span><span className={`nfl-game-status${isFinal ? ' is-final' : ''}`}>{event.status}</span></div>
+  </article>
 }

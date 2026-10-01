@@ -103,6 +103,16 @@
 .sport-feature-link { margin: 22px 0; display: inline-flex; align-items: center; gap: 8px; color: var(--green); font-size: 13px; font-weight: 600; text-decoration: none; }
 .sport-api-events { padding: 34px 0 46px; border-bottom: 1px solid var(--line); }
 .sport-api-events .profile-section-heading { margin-bottom: 20px; }
+.sport-event-tabs { display: flex; gap: 4px; margin-bottom: 22px; border-bottom: 1px solid var(--line); }
+.sport-event-tabs button { min-height: 42px; padding: 0 18px; border: 0; border-bottom: 2px solid transparent; color: var(--muted); background: transparent; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.sport-event-tabs button.active { border-bottom-color: var(--green); color: var(--green); }
+.sport-event-group-tabs { display: flex; gap: 8px; max-width: 100%; overflow-x: auto; padding: 2px 1px 12px; scrollbar-color: var(--violet) transparent; }
+.sport-event-group-tabs button { min-width: 120px; min-height: 58px; padding: 9px 12px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px; border: 1px solid var(--line); color: var(--muted); background: #0b1c1d; text-align: left; }
+.sport-event-group-tabs button span { color: var(--ink); font: 700 15px/1 var(--display); text-transform: uppercase; white-space: nowrap; }
+.sport-event-group-tabs button small { color: var(--muted); font-size: 10px; }
+.sport-event-group-tabs button.active { border-color: var(--green); background: rgba(150, 211, 141, 0.1); }
+.sport-event-group-tabs button.active span, .sport-event-group-tabs button.active small { color: var(--green); }
+.sport-event-list { display: grid; gap: 0; }
 .sport-events-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .sport-event-card { min-width: 0; padding: 20px; border: 1px solid var(--line); background: #0b1c1d; }
 .sport-event-meta, .sport-event-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 11px; }
