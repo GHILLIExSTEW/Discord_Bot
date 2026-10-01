@@ -258,7 +258,7 @@ function Website() {
           <a href={sectionHref('cappers')} onClick={closeMenu}>Cappers</a>
           <a href={sectionHref('plans')} onClick={closeMenu}>Membership</a>
           <a href={sectionHref('method')} onClick={closeMenu}>Method</a>
-          <a className="nav-community" href={sectionHref('community')} onClick={closeMenu}>Join Discord <ArrowRight size={16} /></a>
+          <a className="nav-community" href="https://discord.gg/mwxRsWUp5W" target="_blank" rel="noreferrer" onClick={closeMenu}>Join Discord <ArrowRight size={16} /></a>
         </nav>
         <button className="menu-button" type="button" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-label="Toggle navigation">{menuOpen ? <X /> : <Menu />}</button>
       </header>
