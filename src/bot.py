@@ -18,13 +18,16 @@ from src.services.image_play_service import image_play_service
 from src.services.diagnostic_service import diagnostic_service
 from src.services.tracker_image_service import render_tracker_image
 from src.services.api_sports_service import api_sports_service
+from src.services.api_sports_multi_service import api_sports_multi_service
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("official_play_bot")
 TRACKER_TIMEZONE = ZoneInfo("America/New_York")
 TRACKER_UPDATE_TIMES = [datetime_time(hour=hour, minute=0, tzinfo=TRACKER_TIMEZONE) for hour in range(24)]
 API_SPORTS_DAILY_SYNC_TIME = datetime_time(hour=6, minute=10, tzinfo=TRACKER_TIMEZONE)
+API_SPORTS_MULTI_DAILY_SYNC_TIME = datetime_time(hour=6, minute=25, tzinfo=TRACKER_TIMEZONE)
 nfl_initial_sync_started = False
+multi_sport_initial_sync_started = False
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -443,6 +446,37 @@ async def before_live_nfl_score_sync() -> None:
     await bot.wait_until_ready()
 
 
+@tasks.loop(time=API_SPORTS_MULTI_DAILY_SYNC_TIME)
+async def daily_multi_sport_api_sync() -> None:
+    try:
+        result = await asyncio.to_thread(api_sports_multi_service.sync_daily)
+        logger.info("api_sports_multi_daily_sync_complete result=%s", result)
+    except Exception:
+        logger.exception("api_sports_multi_daily_sync_failed")
+
+
+@daily_multi_sport_api_sync.before_loop
+async def before_daily_multi_sport_api_sync() -> None:
+    await bot.wait_until_ready()
+
+
+@tasks.loop(minutes=15)
+async def live_multi_sport_api_sync() -> None:
+    try:
+        sport_slugs = await asyncio.to_thread(api_sports_multi_service.active_sports)
+        if not sport_slugs:
+            return
+        result = await asyncio.to_thread(api_sports_multi_service.sync_live_scores, sport_slugs)
+        logger.info("api_sports_multi_live_sync_complete result=%s", result)
+    except Exception:
+        logger.exception("api_sports_multi_live_sync_failed")
+
+
+@live_multi_sport_api_sync.before_loop
+async def before_live_multi_sport_api_sync() -> None:
+    await bot.wait_until_ready()
+
+
 async def initial_nfl_data_sync() -> None:
     try:
         result = await asyncio.to_thread(api_sports_service.sync_daily)
@@ -451,9 +485,18 @@ async def initial_nfl_data_sync() -> None:
         logger.exception("api_sports_initial_sync_failed")
 
 
+async def initial_multi_sport_api_sync() -> None:
+    try:
+        result = await asyncio.to_thread(api_sports_multi_service.sync_daily)
+        logger.info("api_sports_multi_initial_sync_complete result=%s", result)
+    except Exception:
+        logger.exception("api_sports_multi_initial_sync_failed")
+
+
 @bot.event
 async def on_ready():
     global nfl_initial_sync_started
+    global multi_sport_initial_sync_started
     print(f"Logged in as {bot.user}")
     if not hourly_tracker_update.is_running():
         hourly_tracker_update.start()
@@ -462,9 +505,16 @@ async def on_ready():
             daily_nfl_data_sync.start()
         if not live_nfl_score_sync.is_running():
             live_nfl_score_sync.start()
+        if not daily_multi_sport_api_sync.is_running():
+            daily_multi_sport_api_sync.start()
+        if not live_multi_sport_api_sync.is_running():
+            live_multi_sport_api_sync.start()
         if not nfl_initial_sync_started:
             nfl_initial_sync_started = True
             asyncio.create_task(initial_nfl_data_sync())
+        if not multi_sport_initial_sync_started:
+            multi_sport_initial_sync_started = True
+            asyncio.create_task(initial_multi_sport_api_sync())
 
 
 @bot.event

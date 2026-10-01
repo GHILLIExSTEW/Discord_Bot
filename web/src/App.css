@@ -101,6 +101,16 @@
 .sport-page-heading { max-width: 900px; padding-bottom: 32px; border-bottom: 1px solid var(--line); }
 .sport-page-heading h1 { text-transform: uppercase; }
 .sport-feature-link { margin: 22px 0; display: inline-flex; align-items: center; gap: 8px; color: var(--green); font-size: 13px; font-weight: 600; text-decoration: none; }
+.sport-api-events { padding: 34px 0 46px; border-bottom: 1px solid var(--line); }
+.sport-api-events .profile-section-heading { margin-bottom: 20px; }
+.sport-events-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.sport-event-card { min-width: 0; padding: 20px; border: 1px solid var(--line); background: #0b1c1d; }
+.sport-event-meta, .sport-event-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 11px; }
+.sport-event-meta span { color: var(--green); font-weight: 700; }
+.sport-event-card h3 { margin: 14px 0; color: var(--ink); font: 700 22px/1.05 var(--display); text-transform: uppercase; }
+.sport-event-teams { max-width: 560px; }
+.sport-event-footer { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.sport-event-footer .nfl-game-status { margin: 0; }
 .sport-record-metrics { max-width: 900px; display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 24px; border-bottom: 1px solid var(--line); }
 .sport-record-metrics > div { min-height: 90px; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--line); }
 .sport-record-metrics > div:first-child { padding-left: 0; }
@@ -455,6 +465,7 @@
   .sport-record-metrics > div { padding: 14px 8px; }
   .sport-record-metrics > div:first-child { padding-left: 0; }
   .sport-record-metrics strong { font-size: 23px; }
+  .sport-events-grid { grid-template-columns: 1fr; }
   .site-footer { grid-template-columns: 1fr; gap: 25px; }
   .footer-links { flex-wrap: wrap; }
   .copyright { text-align: left; }

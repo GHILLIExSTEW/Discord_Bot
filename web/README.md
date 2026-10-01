@@ -93,6 +93,24 @@ document verification service.
 The website reads `public_nfl_games`, `public_nfl_standings`, and
 `public_nfl_data_status` from Supabase. It never calls API-Sports directly.
 
+## Multi-Sport API-Sports Events
+
+1. Run `supabase/migrations/20260930300000_api_sports_multi_event_cache.sql` in
+  Supabase SQL Editor. It creates a private event cache and a public read-only
+  RPC.
+2. The Proxmox bot uses `API_SPORTS_KEY` from its server-side `.env`; never put
+  this key in Amplify or a `VITE_*` setting.
+3. The daily sync requests a rolling seven-day schedule for each reachable
+  date-based API, plus the current Formula 1 season. Live scores are refreshed
+  every 15 minutes only for sports with a cached game near/in progress.
+
+Connected product feeds currently include Football, Basketball, Baseball,
+Hockey, Rugby, Handball, Volleyball, Formula 1, and MMA. American Football uses
+the dedicated NFL feed above. Cricket and Cycling remain listed but their
+configured API-Sports hosts did not resolve during setup, so those pages show
+that their feed is unavailable instead of fabricating data. API-Sports access
+depends on the account's subscription.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

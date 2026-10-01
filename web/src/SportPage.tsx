@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { fetchNflGames, type NflGame } from './nflData'
+import { supabase } from './supabaseClient'
 import { sportsCatalog } from './sportsCatalog'
 
 type Result = {
@@ -11,6 +14,24 @@ type Result = {
   units: number
   status: 'win' | 'loss' | 'void' | 'partial'
   net_units: number
+}
+type SportEvent = {
+  event_id: string
+  league_name: string | null
+  season: string | null
+  round_name: string | null
+  event_name: string
+  start_at: string
+  venue: { name?: string; city?: string; country?: string } | null
+  home_name: string | null
+  home_logo: string | null
+  away_name: string | null
+  away_logo: string | null
+  home_score: unknown
+  away_score: unknown
+  status_code: string
+  status: string
+  synced_at: string
 }
 
 function formatDate(value: string): string {
@@ -27,18 +48,66 @@ export default function SportPage({ slug, results, loadState }: { slug: string; 
   const sport = sportsCatalog.find((item) => item.slug === slug)
   if (!sport) return <main className="sport-page"><p className="eyebrow">Sports</p><h1>Sport not found.</h1><Link to="/">Return home <ArrowRight size={16} /></Link></main>
 
+  return <SportPageContent sport={sport} results={results} loadState={loadState} />
+}
+
+function SportPageContent({ sport, results, loadState }: { sport: (typeof sportsCatalog)[number]; results: Result[]; loadState: 'loading' | 'ready' | 'error' | 'configuration' }) {
+  const [events, setEvents] = useState<SportEvent[]>([])
+  const [eventState, setEventState] = useState<'loading' | 'ready' | 'unavailable' | 'error'>(sport.feed === 'unavailable' ? 'unavailable' : 'loading')
+  useEffect(() => {
+    if (sport.feed === 'unavailable') return
+    let cancelled = false
+    void (async () => {
+      try {
+        let rows: SportEvent[]
+        if (sport.feed === 'nfl') {
+          rows = (await fetchNflGames()).map(mapNflGame)
+        } else {
+          const { data, error } = await supabase.rpc('public_sport_events', { p_sport_slug: sport.slug })
+          if (error) throw error
+          rows = (data ?? []) as SportEvent[]
+        }
+        if (cancelled) return
+        setEvents(rows)
+        setEventState('ready')
+      } catch {
+        if (!cancelled) setEventState('error')
+      }
+    })()
+    return () => { cancelled = true }
+  }, [sport.feed, sport.slug])
+
   const sportResults = results.filter((result) => result.sport.trim().toLowerCase() === sport.name.toLowerCase())
   const wins = sportResults.filter((result) => result.status === 'win').length
   const losses = sportResults.filter((result) => result.status === 'loss').length
   const net = sportResults.reduce((sum, result) => sum + Number(result.net_units), 0)
+  const sortedEvents = [...events].sort((first, second) => Date.parse(first.start_at) - Date.parse(second.start_at))
 
   return <main className="sport-page">
     <Link to="/" className="capper-back-link"><ArrowRight size={16} /> Home</Link>
     <header className="sport-page-heading">
-      <p className="eyebrow">Sport record</p><h1>{sport.name}.</h1>
-      <p>Official settled plays and performance for {sport.name}.</p>
+      <p className="eyebrow">Sports center</p><h1>{sport.name}.</h1>
+      <p>Schedules, scores, and the official settled-play record for {sport.name}.</p>
     </header>
     {sport.slug === 'american-football' && <Link className="sport-feature-link" to="/nfl">Open NFL schedule, scores &amp; standings <ArrowRight size={16} /></Link>}
+    <section className="sport-api-events">
+      <div className="profile-section-heading"><p className="eyebrow">Schedule & scores</p><h2>{sport.name} events.</h2></div>
+      {eventState === 'loading' && <p className="results-empty">Loading {sport.name} schedule…</p>}
+      {eventState === 'unavailable' && <p className="results-empty">A schedule feed is not connected for {sport.name} yet.</p>}
+      {eventState === 'error' && <p className="results-empty">{sport.name} schedule is temporarily unavailable.</p>}
+      {eventState === 'ready' && sortedEvents.length === 0 && <p className="results-empty">No {sport.name} events are available in the current schedule window.</p>}
+      {eventState === 'ready' && sortedEvents.length > 0 && <div className="sport-events-grid">
+        {sortedEvents.map((event) => <article className="sport-event-card" key={event.event_id}>
+          <div className="sport-event-meta"><span>{event.league_name || sport.name}</span><time dateTime={event.start_at}>{formatDate(event.start_at)}</time></div>
+          <h3>{event.event_name}</h3>
+          {(event.home_name || event.away_name) && <div className="sport-event-teams">
+            {event.away_name && <SportEventTeam name={event.away_name} logo={event.away_logo} score={event.away_score} />}
+            {event.home_name && <SportEventTeam name={event.home_name} logo={event.home_logo} score={event.home_score} />}
+          </div>}
+          <div className="sport-event-footer"><span>{event.round_name || event.venue?.name || event.season || ''}</span><span className={`nfl-game-status${['FT', 'AOT', 'CANC', 'ABD', 'WO', 'COMPLETED', 'FINISHED'].includes(event.status_code.toUpperCase()) ? ' is-final' : ''}`}>{event.status}</span></div>
+        </article>)}
+      </div>}
+    </section>
     <div className="sport-record-metrics">
       <div><span>Settled plays</span><strong>{loadState === 'ready' ? sportResults.length : '—'}</strong></div>
       <div><span>Record</span><strong>{loadState === 'ready' ? `${wins}-${losses}` : '—'}</strong></div>
@@ -62,4 +131,42 @@ export default function SportPage({ slug, results, loadState }: { slug: string; 
       </div>}
     </section>
   </main>
+}
+
+function SportEventTeam({ name, logo, score }: { name: string; logo: string | null; score: unknown }) {
+  return <div className="nfl-team-line">
+    {logo && <img src={logo} alt="" loading="lazy" />}
+    <span>{name}</span>
+    <strong>{formatEventScore(score)}</strong>
+  </div>
+}
+
+function formatEventScore(value: unknown): string {
+  if (typeof value === 'number' || typeof value === 'string') return String(value)
+  if (value && typeof value === 'object' && 'total' in value) {
+    const total = (value as { total?: unknown }).total
+    if (typeof total === 'number' || typeof total === 'string') return String(total)
+  }
+  return '—'
+}
+
+function mapNflGame(game: NflGame): SportEvent {
+  return {
+    event_id: String(game.game_id),
+    league_name: 'NFL',
+    season: String(game.season),
+    round_name: game.week || game.stage,
+    event_name: `${game.away_team_name} vs ${game.home_team_name}`,
+    start_at: game.kickoff_at,
+    venue: { name: game.venue_name || undefined, city: game.venue_city || undefined },
+    home_name: game.home_team_name,
+    home_logo: game.home_team_logo,
+    away_name: game.away_team_name,
+    away_logo: game.away_team_logo,
+    home_score: game.home_score,
+    away_score: game.away_score,
+    status_code: game.status_short,
+    status: game.status_long,
+    synced_at: game.synced_at,
+  }
 }
