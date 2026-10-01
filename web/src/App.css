@@ -1,10 +1,10 @@
 #root { min-height: 100vh; }
 .site-shell { overflow: hidden; }
 .site-header { height: 76px; padding: 0 clamp(20px, 5vw, 76px); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: rgba(243, 241, 233, 0.94); position: sticky; top: 0; z-index: 20; backdrop-filter: blur(12px); }
-.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-.brand-mark { display: grid; place-items: center; width: 38px; height: 38px; background: var(--ink); color: var(--white); font: 800 20px/1 var(--display); }
+.brand { min-width: 0; display: flex; align-items: center; gap: 12px; text-decoration: none; }
+.brand-logo { width: 52px; height: 52px; display: block; object-fit: cover; }
 .brand-copy { display: flex; align-items: baseline; gap: 6px; text-transform: uppercase; }
-.brand-copy strong { font: 700 22px/1 var(--display); }
+.brand-copy strong { color: var(--ink); font: 700 22px/1 var(--display); }
 .brand-copy small { color: var(--green); font: 600 15px/1 var(--display); }
 .main-nav { display: flex; align-items: center; gap: clamp(18px, 2.5vw, 38px); }
 .main-nav a { color: #4d5049; text-decoration: none; font-size: 14px; font-weight: 600; }
@@ -162,8 +162,9 @@
 .button-accent { color: var(--ink); background: var(--amber); border-color: var(--amber); }
 .site-footer { padding: 52px clamp(20px, 7vw, 108px) 30px; display: grid; grid-template-columns: 1fr auto; gap: 36px 60px; background: var(--paper); border-top: 1px solid var(--line); }
 .footer-brand { display: flex; align-items: center; gap: 12px; }
+.footer-logo { width: 52px; height: 52px; display: block; object-fit: cover; }
 .footer-brand p { margin: 0; display: flex; flex-direction: column; }
-.footer-brand strong { font: 700 20px/1.2 var(--display); text-transform: uppercase; }
+.footer-brand strong { color: var(--ink); font: 700 20px/1.2 var(--display); text-transform: uppercase; }
 .footer-brand small, .disclaimer, .copyright { color: var(--muted); font-size: 10px; }
 .footer-links { display: flex; align-items: center; gap: 24px; }
 .footer-links a { color: #555850; font-size: 12px; text-decoration: none; }
@@ -188,7 +189,11 @@
 }
 @media (max-width: 720px) {
   .site-header { height: 66px; }
-  .brand-copy strong { font-size: 19px; }
+  .brand-logo { width: 42px; height: 42px; }
+  .brand { gap: 9px; }
+  .brand-copy { gap: 4px; }
+  .brand-copy strong { font-size: 18px; }
+  .brand-copy small { font-size: 13px; }
   .main-nav { top: 65px; }
   .hero-section { padding-top: 54px; }
   .hero-content h1 { font-size: clamp(66px, 24vw, 104px); }

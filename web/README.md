@@ -20,6 +20,16 @@ The public key is intended for browser use. Never put the bot's `service_role`
 key in a `VITE_*` variable, website setting, or frontend source. The SQL
 function grants anonymous access only to the restricted settled-results query.
 
+## Brand Logo
+
+The brand mark is stored at
+`website-assets/brand/playmaker-logo-512.webp` in the dedicated public Supabase
+Storage bucket. The existing `Media` bucket remains private. The site uses the
+public logo URL by default and falls back to the optimized local WebP in
+`web/public/playmaker-logo.webp` if storage is unavailable. Apply
+`supabase/migrations/20260930250000_website_assets_bucket.sql` when setting up a
+new Supabase project.
+
 ## Capper Pages
 
 Each capper has a URL at `/cappers/<slug>` with their settled record, cumulative

@@ -26,6 +26,8 @@ type CapperSummary = { name: string; slug: string; avatar_url?: string | null; p
 const resultsPageSize = 1000
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const localBrandLogoUrl = '/playmaker-logo.webp'
+const brandLogoUrl = import.meta.env.VITE_BRAND_LOGO_URL || 'https://lhsevzucmmzetpshpffv.supabase.co/storage/v1/object/public/website-assets/brand/playmaker-logo-512.webp'
 const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 }) : null
@@ -79,6 +81,16 @@ function CapperAvatar({ name, avatarUrl, large = false }: { name: string; avatar
   const initials = name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()
   if (failed) return <span className={`capper-avatar-fallback${large ? ' is-large' : ''}`} aria-label={`${name} avatar`}>{initials}</span>
   return <img className={`capper-avatar-image${large ? ' is-large' : ''}`} src={avatarUrl || generatedAvatarUrl(name)} alt={`${name} avatar`} onError={() => setFailed(true)} />
+}
+
+function BrandLogo({ className }: { className: string }) {
+  const [source, setSource] = useState(brandLogoUrl)
+  return <img
+    className={className}
+    src={source}
+    alt="Playmaker Picks"
+    onError={() => { if (source !== localBrandLogoUrl) setSource(localBrandLogoUrl) }}
+  />
 }
 
 function buildCapperAnalytics(results: Result[]) {
@@ -201,7 +213,7 @@ function Website() {
     <div className="site-shell">
       <header className="site-header">
         <Link className="brand" to="/" aria-label="Playmaker Picks home" onClick={closeMenu}>
-          <span className="brand-mark">PP</span>
+          <BrandLogo className="brand-logo" />
           <span className="brand-copy"><strong>Playmaker</strong><small>Picks</small></span>
         </Link>
         <nav className={menuOpen ? 'main-nav is-open' : 'main-nav'} aria-label="Primary navigation">
@@ -399,7 +411,7 @@ function Website() {
       </main>
 
       <footer className="site-footer">
-        <div className="footer-brand"><span className="brand-mark">PP</span><p><strong>Playmaker Picks</strong><small>Operated by Playmaker Sports Analytics, LLC.</small></p></div>
+        <div className="footer-brand"><BrandLogo className="footer-logo" /><p><strong>Playmaker Picks</strong><small>Operated by Playmaker Sports Analytics, LLC.</small></p></div>
         <div className="footer-links"><a href="#method">Methodology</a><a href="mailto:legal@playmakersportsanalytics.com">Legal</a><a href="mailto:support@playmakersportsanalytics.com">Support</a></div>
         <p className="disclaimer">Sports analysis and opinions for informational and entertainment purposes only. We do not accept or place wagers. No outcome or profit is guaranteed. Must be 21+.</p>
         <p className="copyright">© 2026 Playmaker Sports Analytics, LLC.</p>
