@@ -49,6 +49,9 @@
 
 .results-section, .cappers-section, .plans-section, .method-section { padding: 110px clamp(20px, 7vw, 108px); }
 .results-section { background: var(--white); }
+.results-page .section-heading h1 { margin: 0; font: 700 clamp(48px, 6vw, 86px)/0.95 var(--display); text-transform: uppercase; }
+.results-view-all-wrap { display: flex; justify-content: flex-end; margin-top: 22px; }
+.results-view-all { color: #040916; background: var(--green); border-color: var(--green); }
 .section-heading { display: grid; grid-template-columns: 1.1fr 0.9fr; align-items: end; gap: 50px; margin-bottom: 52px; }
 .section-heading h2, .method-intro h2 { margin: 0; font: 700 clamp(48px, 6vw, 86px)/0.95 var(--display); text-transform: uppercase; }
 .section-heading > p { max-width: 580px; margin: 0; color: var(--muted); line-height: 1.7; }

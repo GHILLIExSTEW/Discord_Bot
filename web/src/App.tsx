@@ -32,6 +32,7 @@ const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supa
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 }) : null
 const CapperAnalyticsCharts = lazy(() => import('./CapperAnalyticsCharts'))
+const AllResultsPage = lazy(() => import('./AllResultsPage'))
 
 async function fetchPublicResults(): Promise<Result[]> {
   if (!supabase) throw new Error('Public Supabase configuration is missing.')
@@ -191,14 +192,18 @@ function Website() {
   const selectedCapper = cappers.find((capper) => capper.slug === profileSlug)
   const selectedCapperName = selectedCapper?.name
   useEffect(() => {
-    document.title = selectedCapperName ? `${selectedCapperName} | Playmaker Picks` : 'Playmaker Picks | Sports Analysis With Receipts'
+    document.title = selectedCapperName
+      ? `${selectedCapperName} | Playmaker Picks`
+      : location.pathname === '/results'
+        ? 'Settled Results | Playmaker Picks'
+        : 'Playmaker Picks | Sports Analysis With Receipts'
     document.querySelector('meta[name="description"]')?.setAttribute(
       'content',
       selectedCapperName
         ? `${selectedCapperName}'s official settled-play record, performance graphs, and results.`
         : 'Verified sports analysis, transparent play tracking, and the Playmaker Picks community.',
     )
-  }, [selectedCapperName])
+  }, [location.pathname, selectedCapperName])
   const capperResults = selectedCapper ? results.filter((result) => result.capper === selectedCapper.name) : []
   const capperAnalytics = buildCapperAnalytics(capperResults)
   const capperWins = capperResults.filter((result) => result.status === 'win').length
@@ -208,6 +213,7 @@ function Website() {
   const visibleCapperResults = sport === 'All' ? capperResults : capperResults.filter((result) => result.sport === sport)
   const closeMenu = () => setMenuOpen(false)
   const sectionHref = (section: string) => location.pathname === '/' ? `#${section}` : `/#${section}`
+  const homepageResults = visibleResults.slice(0, 10)
 
   return (
     <div className="site-shell">
@@ -216,7 +222,7 @@ function Website() {
           <BrandLogo className="brand-logo" />
         </Link>
         <nav className={menuOpen ? 'main-nav is-open' : 'main-nav'} aria-label="Primary navigation">
-          <a href={sectionHref('results')} onClick={closeMenu}>Results</a>
+          <a href="/results" onClick={closeMenu}>Results</a>
           <a href={sectionHref('cappers')} onClick={closeMenu}>Cappers</a>
           <a href={sectionHref('plans')} onClick={closeMenu}>Membership</a>
           <a href={sectionHref('method')} onClick={closeMenu}>Method</a>
@@ -226,7 +232,19 @@ function Website() {
       </header>
 
       <main id="top">
-        {selectedCapper ? (
+        {location.pathname === '/results' ? (
+          <Suspense fallback={<section className="results-page results-section"><p className="results-empty">Loading the full results ledger…</p></section>}>
+            <AllResultsPage
+              results={visibleResults}
+              totalResults={results.length}
+              sports={sports}
+              sport={sport}
+              loadState={loadState}
+              onSportChange={setSport}
+              onRetry={() => { setLoadState('loading'); setRetryCount((count) => count + 1) }}
+            />
+          </Suspense>
+        ) : selectedCapper ? (
           <section className="capper-home">
             <div className="capper-profile-heading">
               <Link to="/#cappers" className="capper-back-link"><ArrowRight size={16} /> All cappers</Link>
@@ -283,7 +301,7 @@ function Website() {
             <h1>Playmaker<br />Picks</h1>
             <p className="hero-copy">The play is only half the story. See the published line, risk, capper, and final grade from the official settled record.</p>
             <div className="hero-actions">
-              <a className="button button-primary" href="#results">View settled results <ArrowRight size={18} /></a>
+              <a className="button button-primary" href="/results">View settled results <ArrowRight size={18} /></a>
               <a className="button button-quiet" href="#community"><MessageCircle size={18} /> Join Discord free</a>
             </div>
           </div>
@@ -322,14 +340,14 @@ function Website() {
             <div className="filter-group" aria-label="Filter settled results by sport">
               {sports.map((item) => <button className={sport === item ? 'active' : ''} type="button" key={item} onClick={() => setSport(item)}>{item}</button>)}
             </div>
-            <span aria-live="polite">{loadState === 'ready' ? `${results.length} settled plays` : loadState === 'loading' ? 'Loading results' : loadState === 'configuration' ? 'Supabase setup required' : 'Results unavailable'}</span>
+            <span aria-live="polite">{loadState === 'ready' ? `Showing ${homepageResults.length} of ${results.length} settled plays` : loadState === 'loading' ? 'Loading results' : loadState === 'configuration' ? 'Supabase setup required' : 'Results unavailable'}</span>
             {loadState === 'error' && <button className="results-retry" type="button" onClick={() => { setLoadState('loading'); setRetryCount((count) => count + 1) }}>Retry</button>}
           </div>
           {loadState === 'configuration' && <p className="data-notice">Add the public Supabase URL and anon key to <code>web/.env.local</code>, then apply the public-results SQL migration.</p>}
           {loadState === 'error' && <p className="data-notice">Live results could not be loaded. Check the Supabase public-results migration and project settings, then retry.</p>}
           <div className="results-table" role="table" aria-label="Verified settled results">
             <div className="result-row result-head" role="row"><span>Date</span><span>Play</span><span>Capper</span><span>Risk</span><span>Result</span><span>Net</span></div>
-            {visibleResults.map((result, index) => (
+            {homepageResults.map((result, index) => (
               <div className="result-row" role="row" key={`${result.settled_at}-${result.capper}-${index}`}>
                 <span className="result-date">{formatDate(result.settled_at)}<small>{result.sport}</small></span>
                 <span className="result-selection">{result.selection}<small>{result.odds > 0 ? '+' : ''}{result.odds}</small></span>
@@ -341,6 +359,7 @@ function Website() {
             {loadState === 'ready' && visibleResults.length === 0 && <div className="results-empty">No settled results{sport !== 'All' ? ` for ${sport}` : ''} yet.</div>}
             {loadState === 'loading' && <div className="results-empty">Loading the official record…</div>}
           </div>
+          <div className="results-view-all-wrap"><Link className="button results-view-all" to="/results">View all settled results <ArrowRight size={17} /></Link></div>
           <div className="proof-band">
             <div className="proof-copy">
               <p className="eyebrow">Built around the record</p><h3>One scoreboard.<br />Every angle.</h3>
