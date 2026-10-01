@@ -50,8 +50,9 @@ so direct visits and bookmarks to capper pages load the SPA.
 
 ## Member Accounts
 
-1. Run `supabase/migrations/20260930270000_member_accounts_favorites.sql` in
-  Supabase SQL Editor.
+1. Run `supabase/migrations/20260930270000_member_accounts_favorites.sql`, then
+  `supabase/migrations/20260930280000_member_profile_controls.sql` in Supabase
+  SQL Editor.
 2. In Supabase **Authentication → Providers**, enable Discord and enter the
   Discord application's client ID and newly rotated client secret.
 3. Copy the Supabase Discord callback URL shown for the provider (typically
@@ -61,6 +62,13 @@ so direct visits and bookmarks to capper pages load the SPA.
 4. In Supabase **Authentication → URL Configuration**, set the production Site
   URL to `https://playmakersportsanalytics.com` and allow the production and
   local `/account` redirect URLs.
+
+Members can edit their display name, profile handle, avatar URL, and time zone;
+opt into a public `/members/<handle>` profile; and choose favorite sports and
+cappers. Favorites remain private unless the member explicitly enables public
+profile sharing. Account export downloads those member settings as JSON, and
+account deletion removes the auth identity and its saved preferences. Alert
+toggles are saved as preferences, but delivery channels are not implemented yet.
 
 The account page signs members in with Discord. It sends date of birth to the
 `verify_member_age` database function, which checks the 21+ threshold and saves

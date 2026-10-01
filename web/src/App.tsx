@@ -34,6 +34,8 @@ const AllResultsPage = lazy(() => import('./AllResultsPage'))
 const NflPage = lazy(() => import('./NflPage'))
 const NflHomePreview = lazy(() => import('./NflHomePreview'))
 const MemberAccountPage = lazy(() => import('./MemberAccountPage'))
+const MemberPublicPage = lazy(() => import('./MemberPublicPage'))
+const MemberHomeFeed = lazy(() => import('./MemberHomeFeed'))
 
 async function fetchPublicResults(): Promise<Result[]> {
   if (!supabase) throw new Error('Public Supabase configuration is missing.')
@@ -214,6 +216,7 @@ function Website() {
   const visibleResults = sport === 'All' ? results : results.filter((result) => result.sport === sport)
   const cappers = summarizeCappers(results)
   const profileSlug = location.pathname.startsWith('/cappers/') ? decodeURIComponent(location.pathname.slice('/cappers/'.length).replace(/\/$/, '')) : null
+  const memberHandle = routePath.startsWith('/members/') ? decodeURIComponent(routePath.slice('/members/'.length)) : null
   const selectedCapper = cappers.find((capper) => capper.slug === profileSlug)
   const selectedCapperName = selectedCapper?.name
   useEffect(() => {
@@ -261,7 +264,11 @@ function Website() {
       </header>
 
       <main id="top">
-        {routePath === '/account' ? (
+        {memberHandle ? (
+          <Suspense fallback={<section className="member-public-page"><p className="account-state">Loading public profile…</p></section>}>
+            <MemberPublicPage handle={memberHandle} />
+          </Suspense>
+        ) : routePath === '/account' ? (
           <Suspense fallback={<section className="account-page"><p className="account-state">Loading account…</p></section>}>
             <MemberAccountPage />
           </Suspense>
@@ -343,6 +350,10 @@ function Website() {
             <span>Explore the official record</span><ArrowDown size={18} />
           </a>
         </section>
+
+        <Suspense fallback={<section className="personalized-feed"><p className="account-state">Loading your board…</p></section>}>
+          <MemberHomeFeed results={results} />
+        </Suspense>
 
         <section className="results-section scroll-reveal" id="results">
           <div className="section-heading">
