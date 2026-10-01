@@ -73,7 +73,7 @@ function capperSlug(name: string): string {
 }
 
 function generatedAvatarUrl(name: string): string {
-  return `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=0e5d3a,dc5b43,d39b2a`
+  return `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=0b6843,d94f45,6746bf`
 }
 
 function CapperAvatar({ name, avatarUrl, large = false }: { name: string; avatarUrl?: string | null; large?: boolean }) {
