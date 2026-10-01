@@ -102,7 +102,8 @@ function SportPageContent({ sport, results, loadState }: { sport: (typeof sports
   const wins = sportResults.filter((result) => result.status === 'win').length
   const losses = sportResults.filter((result) => result.status === 'loss').length
   const net = sportResults.reduce((sum, result) => sum + Number(result.net_units), 0)
-  const upcomingEvents = events.filter((event) => !finalEventStatuses.has(event.status_code.toUpperCase())).sort((first, second) => Date.parse(first.start_at) - Date.parse(second.start_at))
+  const scheduleCutoff = Date.now() - (4 * 60 * 60 * 1000)
+  const upcomingEvents = events.filter((event) => !finalEventStatuses.has(event.status_code.toUpperCase()) && Date.parse(event.start_at) >= scheduleCutoff).sort((first, second) => Date.parse(first.start_at) - Date.parse(second.start_at))
   const finalEvents = events.filter((event) => finalEventStatuses.has(event.status_code.toUpperCase())).sort((first, second) => Date.parse(second.start_at) - Date.parse(first.start_at))
   const leagueGroups = Array.from(upcomingEvents.reduce((groups, event) => {
     const label = event.league_name?.trim() || sport.name
