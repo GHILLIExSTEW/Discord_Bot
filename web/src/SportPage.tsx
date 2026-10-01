@@ -73,7 +73,12 @@ function SportPageContent({ sport, results, loadState }: { sport: (typeof sports
   const [eventView, setEventView] = useState<EventView>('schedule')
   const [selectedLeague, setSelectedLeague] = useState('')
   const [selectedGroup, setSelectedGroup] = useState('')
+  const [now, setNow] = useState(() => Date.now())
   const [eventState, setEventState] = useState<'loading' | 'ready' | 'unavailable' | 'error'>(sport.feed === 'unavailable' ? 'unavailable' : 'loading')
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
   useEffect(() => {
     if (sport.feed === 'unavailable') return
     let cancelled = false
@@ -102,9 +107,11 @@ function SportPageContent({ sport, results, loadState }: { sport: (typeof sports
   const wins = sportResults.filter((result) => result.status === 'win').length
   const losses = sportResults.filter((result) => result.status === 'loss').length
   const net = sportResults.reduce((sum, result) => sum + Number(result.net_units), 0)
-  const scheduleCutoff = Date.now() - (4 * 60 * 60 * 1000)
+  const scheduleCutoff = now - (4 * 60 * 60 * 1000)
   const upcomingEvents = events.filter((event) => !finalEventStatuses.has(event.status_code.toUpperCase()) && Date.parse(event.start_at) >= scheduleCutoff).sort((first, second) => Date.parse(first.start_at) - Date.parse(second.start_at))
+  const liveEvents = events.filter((event) => !finalEventStatuses.has(event.status_code.toUpperCase()) && Date.parse(event.start_at) <= now && Date.parse(event.start_at) >= scheduleCutoff).sort((first, second) => Date.parse(second.start_at) - Date.parse(first.start_at))
   const finalEvents = events.filter((event) => finalEventStatuses.has(event.status_code.toUpperCase())).sort((first, second) => Date.parse(second.start_at) - Date.parse(first.start_at))
+  const scoreEvents = [...liveEvents, ...finalEvents]
   const leagueGroups = Array.from(upcomingEvents.reduce((groups, event) => {
     const label = event.league_name?.trim() || sport.name
     const leagueEvents = groups.get(label) ?? []
@@ -156,7 +163,7 @@ function SportPageContent({ sport, results, loadState }: { sport: (typeof sports
             {activeGroupEvents.map((event) => <SportEventCard event={event} sportName={sport.name} key={event.event_id} />)}
           </div>
         </div> : <p className="results-empty">No upcoming {sport.name} events are available in the current schedule window.</p>)}
-        {eventView === 'scores' && (finalEvents.length ? <div className="sport-events-grid">{finalEvents.map((event) => <SportEventCard event={event} sportName={sport.name} key={event.event_id} />)}</div> : <p className="results-empty">No final {sport.name} scores are available yet.</p>)}
+        {eventView === 'scores' && (scoreEvents.length ? <div className="sport-events-grid">{scoreEvents.map((event) => <SportEventCard event={event} sportName={sport.name} key={event.event_id} />)}</div> : <p className="results-empty">No live or final {sport.name} scores are available yet.</p>)}
       </>}
     </section>
     <div className="sport-record-metrics">
