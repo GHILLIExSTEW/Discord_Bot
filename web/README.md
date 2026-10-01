@@ -105,8 +105,11 @@ The website reads `public_nfl_games`, `public_nfl_standings`, and
   every 15 minutes only for sports with a cached game near/in progress.
 
 Connected product feeds currently include Football, Basketball, Baseball,
-Hockey, Rugby, Handball, Volleyball, Formula 1, and MMA. American Football uses
-the dedicated NFL feed above. Cricket and Cycling remain listed but their
+Hockey, Rugby, Handball, Volleyball, Formula 1, MMA, and NCAA football.
+American Football uses the dedicated NFL feed above, while NCAA has its own
+`/sports/ncaa` page backed by the American Football NCAA league filter. Sports
+with multiple leagues, including Hockey, show league tabs before their
+round/week schedule tabs. Cricket and Cycling remain listed but their
 configured API-Sports hosts did not resolve during setup, so those pages show
 that their feed is unavailable instead of fabricating data. API-Sports access
 depends on the account's subscription.

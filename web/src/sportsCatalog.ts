@@ -5,6 +5,7 @@ export const sportsCatalog: SportCatalogItem[] = [
   { slug: 'basketball', name: 'Basketball', feed: 'events' },
   { slug: 'baseball', name: 'Baseball', feed: 'events' },
   { slug: 'american-football', name: 'American Football', feed: 'nfl' },
+  { slug: 'ncaa', name: 'NCAA', feed: 'events' },
   { slug: 'hockey', name: 'Hockey', feed: 'events' },
   { slug: 'rugby', name: 'Rugby', feed: 'events' },
   { slug: 'handball', name: 'Handball', feed: 'events' },

@@ -60,6 +60,7 @@ export default function SportPage({ slug, results, loadState }: { slug: string; 
 function SportPageContent({ sport, results, loadState }: { sport: (typeof sportsCatalog)[number]; results: Result[]; loadState: 'loading' | 'ready' | 'error' | 'configuration' }) {
   const [events, setEvents] = useState<SportEvent[]>([])
   const [eventView, setEventView] = useState<EventView>('schedule')
+  const [selectedLeague, setSelectedLeague] = useState('')
   const [selectedGroup, setSelectedGroup] = useState('')
   const [eventState, setEventState] = useState<'loading' | 'ready' | 'unavailable' | 'error'>(sport.feed === 'unavailable' ? 'unavailable' : 'loading')
   useEffect(() => {
@@ -91,7 +92,16 @@ function SportPageContent({ sport, results, loadState }: { sport: (typeof sports
   const net = sportResults.reduce((sum, result) => sum + Number(result.net_units), 0)
   const upcomingEvents = events.filter((event) => !finalEventStatuses.has(event.status_code.toUpperCase())).sort((first, second) => Date.parse(first.start_at) - Date.parse(second.start_at))
   const finalEvents = events.filter((event) => finalEventStatuses.has(event.status_code.toUpperCase())).sort((first, second) => Date.parse(second.start_at) - Date.parse(first.start_at))
-  const scheduleGroups = Array.from(upcomingEvents.reduce((groups, event) => {
+  const leagueGroups = Array.from(upcomingEvents.reduce((groups, event) => {
+    const label = event.league_name?.trim() || sport.name
+    const leagueEvents = groups.get(label) ?? []
+    leagueEvents.push(event)
+    groups.set(label, leagueEvents)
+    return groups
+  }, new Map<string, SportEvent[]>()).entries()).map(([label, leagueEvents]) => ({ label, events: leagueEvents }))
+  const activeLeague = leagueGroups.some((group) => group.label === selectedLeague) ? selectedLeague : leagueGroups[0]?.label || ''
+  const activeLeagueEvents = leagueGroups.find((group) => group.label === activeLeague)?.events || []
+  const scheduleGroups = Array.from(activeLeagueEvents.reduce((groups, event) => {
     const label = event.round_name?.trim() || formatDate(event.start_at)
     const groupEvents = groups.get(label) ?? []
     groupEvents.push(event)
@@ -119,6 +129,11 @@ function SportPageContent({ sport, results, loadState }: { sport: (typeof sports
           <button className={eventView === 'scores' ? 'active' : ''} type="button" onClick={() => setEventView('scores')}>Scores</button>
         </nav>
         {eventView === 'schedule' && (scheduleGroups.length ? <div className="sport-event-list">
+          {leagueGroups.length > 1 && <div className="sport-event-league-tabs" role="tablist" aria-label={`${sport.name} leagues`}>
+            {leagueGroups.map((group) => <button key={group.label} className={activeLeague === group.label ? 'active' : ''} type="button" role="tab" aria-selected={activeLeague === group.label} onClick={() => { setSelectedLeague(group.label); setSelectedGroup('') }}>
+              <span>{group.label}</span><small>{group.events.length} events</small>
+            </button>)}
+          </div>}
           <div className="sport-event-group-tabs" role="tablist" aria-label={`${sport.name} schedule groups`}>
             {scheduleGroups.map((group) => <button key={group.label} className={activeGroup === group.label ? 'active' : ''} type="button" role="tab" aria-selected={activeGroup === group.label} onClick={() => setSelectedGroup(group.label)}>
               <span>{group.label}</span><small>{group.events.length} events</small>

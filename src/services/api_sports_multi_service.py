@@ -20,6 +20,10 @@ DATE_PRODUCTS = {
     "handball": ("https://v1.handball.api-sports.io", "games"),
     "volleyball": ("https://v1.volleyball.api-sports.io", "games"),
     "mma": ("https://v1.mma.api-sports.io", "fights"),
+    "ncaa": ("https://v1.american-football.api-sports.io", "games"),
+}
+DATE_PRODUCT_PARAMS = {
+    "ncaa": {"league": 2},
 }
 SEASON_PRODUCTS = {
     "formula-1": ("https://v1.formula-1.api-sports.io", "races"),
@@ -177,7 +181,8 @@ class ApiSportsMultiService:
                 events: dict[str, dict] = {}
                 for day_offset in range(7):
                     target_date = today + timedelta(days=day_offset)
-                    rows = self._request(base_url, endpoint, {"date": target_date.isoformat()})
+                    params = {"date": target_date.isoformat(), **DATE_PRODUCT_PARAMS.get(sport_slug, {})}
+                    rows = self._request(base_url, endpoint, params)
                     fetched_at = self.clock()
                     for row in rows:
                         normalized = normalize_event(sport_slug, row, fetched_at)
@@ -234,7 +239,8 @@ class ApiSportsMultiService:
             started = self.clock()
             request_start = self.request_count
             try:
-                rows = self._request(*config, params={"date": current_date})
+                params = {"date": current_date, **DATE_PRODUCT_PARAMS.get(sport_slug, {})}
+                rows = self._request(*config, params=params)
                 fetched_at = self.clock()
                 events = [normalize_event(sport_slug, row, fetched_at) for row in rows]
                 self._store_events(events)

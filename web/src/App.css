@@ -113,6 +113,12 @@
 .sport-event-group-tabs button.active { border-color: var(--green); background: rgba(150, 211, 141, 0.1); }
 .sport-event-group-tabs button.active span, .sport-event-group-tabs button.active small { color: var(--green); }
 .sport-event-list { display: grid; gap: 0; }
+.sport-event-league-tabs { display: flex; gap: 8px; max-width: 100%; overflow-x: auto; padding: 2px 1px 12px; scrollbar-color: var(--amber) transparent; }
+.sport-event-league-tabs button { min-width: 132px; min-height: 58px; padding: 9px 12px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px; border: 1px solid var(--line); color: var(--muted); background: #12151d; text-align: left; }
+.sport-event-league-tabs button span { color: var(--ink); font: 700 15px/1 var(--display); text-transform: uppercase; white-space: nowrap; }
+.sport-event-league-tabs button small { color: var(--muted); font-size: 10px; }
+.sport-event-league-tabs button.active { border-color: var(--amber); background: rgba(226, 174, 92, 0.1); }
+.sport-event-league-tabs button.active span, .sport-event-league-tabs button.active small { color: var(--amber); }
 .sport-events-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .sport-event-card { min-width: 0; padding: 20px; border: 1px solid var(--line); background: #0b1c1d; }
 .sport-event-meta, .sport-event-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 11px; }

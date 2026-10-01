@@ -15,6 +15,10 @@ values ('american-football', 'American Football')
 on conflict (api_slug) do nothing;
 
 insert into public.sports (api_slug, name)
+values ('ncaa', 'NCAA')
+on conflict (api_slug) do nothing;
+
+insert into public.sports (api_slug, name)
 values ('hockey', 'Hockey')
 on conflict (api_slug) do nothing;
 

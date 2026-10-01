@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.services.api_sports_multi_service import ApiSportsMultiService, DATE_PRODUCTS, normalize_event
+from src.services.api_sports_multi_service import ApiSportsMultiService, DATE_PRODUCTS, DATE_PRODUCT_PARAMS, normalize_event
 
 
 @pytest.fixture
@@ -126,3 +126,8 @@ def test_live_sync_with_no_active_sports_uses_no_api_requests(synced_at):
 
     assert result == {"total_requests": 0, "sports": {}}
     assert calls == []
+
+
+def test_ncaa_feed_uses_american_football_ncaa_league_filter():
+    assert DATE_PRODUCTS["ncaa"] == ("https://v1.american-football.api-sports.io", "games")
+    assert DATE_PRODUCT_PARAMS["ncaa"] == {"league": 2}
