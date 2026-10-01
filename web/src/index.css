@@ -3,17 +3,17 @@
 :root {
   font-family: 'IBM Plex Sans', sans-serif;
   color: #19171f;
-  background: #f0f2f5;
+  background: #f3f2f7;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   --ink: #19171f;
-  --paper: #f0f2f5;
+  --paper: #f3f2f7;
   --white: #ffffff;
-  --green: #0b6843;
-  --amber: #d5f05b;
+  --green: #08754a;
+  --amber: #d1ff31;
   --coral: #d94f45;
-  --violet: #6746bf;
+  --violet: #7041d2;
   --line: rgba(25, 23, 31, 0.15);
   --muted: #66636e;
   --display: 'Barlow Condensed', sans-serif;
