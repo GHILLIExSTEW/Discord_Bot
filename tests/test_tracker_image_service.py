@@ -48,9 +48,18 @@ def test_tracker_refresh_replaces_image_on_existing_summary_message():
         async def history(self, limit):
             yield message
 
-    embed = discord.Embed(title="Playmaker Picks | Unit Summary")
+    embed = discord.Embed(title="Playmaker Picks | Unit Summary", description="Results for today")
+    embed.add_field(name="Pending Bets", value="3 bets", inline=True)
+    embed.add_field(name="Monthly Units", value="-3u", inline=True)
+    embed.set_footer(text="Auto-updates hourly")
     asyncio.run(bot_module.update_or_post_tracker_embed(Channel(), embed, BytesIO(b"png data")))
 
     assert message.edit_kwargs["embed"].image.url == "attachment://unit-summary.png"
+    assert message.edit_kwargs["embed"].description == "Results for today"
+    assert [(field.name, field.value) for field in message.edit_kwargs["embed"].fields] == [
+        ("Pending Bets", "3 bets"),
+        ("Monthly Units", "-3u"),
+    ]
+    assert message.edit_kwargs["embed"].footer.text == "Auto-updates hourly"
     assert len(message.edit_kwargs["attachments"]) == 1
     assert message.edit_kwargs["attachments"][0].filename == "unit-summary.png"

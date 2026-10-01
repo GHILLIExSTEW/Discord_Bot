@@ -335,6 +335,11 @@ async def update_or_post_tracker_embed(channel, embed: discord.Embed, image: Byt
     if image is not None:
         image_file = discord.File(image, filename="unit-summary.png")
         image_embed = discord.Embed(title=embed.title, color=embed.color)
+        image_embed.description = embed.description
+        for field in embed.fields:
+            image_embed.add_field(name=field.name, value=field.value, inline=field.inline)
+        if embed.footer.text:
+            image_embed.set_footer(text=embed.footer.text)
         image_embed.set_image(url="attachment://unit-summary.png")
 
     async for message in channel.history(limit=50):
