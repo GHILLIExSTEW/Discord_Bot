@@ -1,5 +1,39 @@
 # React + TypeScript + Vite
 
+## Live Results Setup
+
+The public site reads settled play records through the restricted Supabase
+`public.public_settled_results()` RPC. It returns only posted, settled plays
+and fields needed for the public ledger and capper summaries. Open plays,
+Discord IDs, message IDs, and account data are not exposed.
+
+1. In Supabase Dashboard, open **SQL Editor** and run
+   `supabase/migrations/20260930230000_public_settled_results.sql` from the
+   repository root.
+2. Run `supabase/migrations/20260930240000_public_capper_avatars.sql` to add
+   public avatar support to capper pages.
+3. Copy `web/.env.example` to `web/.env.local`; set the project URL and public
+  anon/publishable key from **Project Settings → API**.
+4. Restart Vite after changing local environment variables.
+
+The public key is intended for browser use. Never put the bot's `service_role`
+key in a `VITE_*` variable, website setting, or frontend source. The SQL
+function grants anonymous access only to the restricted settled-results query.
+
+## Capper Pages
+
+Each capper has a URL at `/cappers/<slug>` with their settled record, cumulative
+net-unit graph, sport-by-sport net graph, and full results ledger. To show a
+capper's own image instead of the generated initials avatar, set their approved
+HTTPS image URL in `public.users.public_avatar_url`. Only this dedicated avatar
+field is returned by the public results function.
+
+For AWS Amplify, add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as
+environment variables. These values are public in the browser build; data
+access remains restricted by the RPC and its grants. In **Hosting → Rewrites
+and redirects**, add a rewrite from `/<*>` to `/index.html` with status `200`
+so direct visits and bookmarks to capper pages load the SPA.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
