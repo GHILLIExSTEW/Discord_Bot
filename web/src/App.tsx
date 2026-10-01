@@ -449,7 +449,7 @@ function Website() {
         <section className="community-section scroll-reveal" id="community">
           <div><p className="eyebrow">The clubhouse</p><h2>The card moves fast.<br />The record stays put.</h2></div>
           <div className="community-copy"><p>Discord carries live alerts and conversation. The website keeps the durable analysis, searchable discussion, and complete history.</p>
-            <a className="button button-accent" href="mailto:support@playmakersportsanalytics.com?subject=Playmaker%20Picks%20Discord%20invite"><MessageCircle size={18} /> Request a Discord invite</a>
+            <a className="button button-accent" href="https://discord.gg/mwxRsWUp5W" target="_blank" rel="noreferrer"><MessageCircle size={18} /> Join Discord</a>
           </div>
         </section>
           </>
