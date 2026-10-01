@@ -119,7 +119,7 @@ returns table (
   team_logo text,
   conference text,
   division text,
-  position integer,
+  standing_position integer,
   wins integer,
   losses integer,
   ties integer,

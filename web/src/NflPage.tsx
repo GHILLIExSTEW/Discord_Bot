@@ -53,7 +53,7 @@ export default function NflPage() {
   const finalGames = games.filter((game) => finalStatuses.has(game.status_short)).sort((a, b) => Date.parse(b.kickoff_at) - Date.parse(a.kickoff_at))
   const groupedStandings = ['AFC', 'NFC'].map((conference) => ({
     conference,
-    rows: standings.filter((standing) => standing.conference?.toUpperCase() === conference).sort((a, b) => (a.division || '').localeCompare(b.division || '') || a.position - b.position),
+    rows: standings.filter((standing) => standing.conference?.toUpperCase() === conference).sort((a, b) => (a.division || '').localeCompare(b.division || '') || a.standing_position - b.standing_position),
   }))
 
   return <main className="nfl-page">

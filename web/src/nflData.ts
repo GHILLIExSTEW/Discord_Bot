@@ -32,7 +32,7 @@ export type NflStanding = {
   team_logo: string | null
   conference: string | null
   division: string | null
-  position: number
+  standing_position: number
   wins: number
   losses: number
   ties: number
