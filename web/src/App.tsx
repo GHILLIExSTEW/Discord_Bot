@@ -214,7 +214,6 @@ function Website() {
       <header className="site-header">
         <Link className="brand" to="/" aria-label="Playmaker Picks home" onClick={closeMenu}>
           <BrandLogo className="brand-logo" />
-          <span className="brand-copy"><strong>Playmaker</strong><small>Picks</small></span>
         </Link>
         <nav className={menuOpen ? 'main-nav is-open' : 'main-nav'} aria-label="Primary navigation">
           <a href={sectionHref('results')} onClick={closeMenu}>Results</a>
