@@ -85,6 +85,7 @@ grant update (display_name, public_handle, avatar_url, public_profile_enabled, t
 grant select, insert, delete on public.member_favorite_sports to authenticated;
 grant select, insert, delete on public.member_favorite_cappers to authenticated;
 
+drop policy if exists member_profiles_select_self on public.member_profiles;
 create policy member_profiles_select_self
   on public.member_profiles for select to authenticated
   using (user_id = (select auth.uid()));
