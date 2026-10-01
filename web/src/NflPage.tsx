@@ -69,10 +69,10 @@ export default function NflPage() {
   return <main className="nfl-page">
     <header className="nfl-page-heading">
       <Link to="/" className="capper-back-link"><ArrowRight size={16} /> Home</Link>
-      <p className="eyebrow">API-Sports · NFL · Season {games[0]?.season ?? standings[0]?.season ?? '—'}</p>
+      <p className="eyebrow">NFL · Season {games[0]?.season ?? standings[0]?.season ?? '—'}</p>
       <h1>Scores, schedule,<br />standings.</h1>
-      <p className="nfl-page-intro">NFL data syncs server-side and is cached in Supabase. This page reads the cache; it never calls API-Sports directly.</p>
-      <p className="nfl-last-sync">Last daily sync: <strong>{formatUpdated(newestSync?.last_success_at)}</strong></p>
+      <p className="nfl-page-intro">Follow upcoming games, final scores, and conference standings for the season.</p>
+      <p className="nfl-last-sync">Last updated: <strong>{formatUpdated(newestSync?.last_success_at)}</strong></p>
     </header>
 
     <nav className="nfl-tabs" aria-label="NFL data views">
@@ -120,7 +120,7 @@ export default function NflPage() {
       </div>)}
     </section>}
 
-    <footer className="nfl-page-footer"><span>Scores and standings update on a daily schedule; game scores refresh during active game windows.</span><span>Times shown in Eastern Time.</span></footer>
+    <footer className="nfl-page-footer"><span>Kickoff times shown in Eastern Time.</span></footer>
   </main>
 }
 
