@@ -27,8 +27,8 @@ type CapperSummary = { name: string; slug: string; avatar_url?: string | null; p
 const resultsPageSize = 1000
 const localBrandLogoUrl = '/playmaker-logo.webp'
 const brandLogoUrl = import.meta.env.VITE_BRAND_LOGO_URL || 'https://lhsevzucmmzetpshpffv.supabase.co/storage/v1/object/public/website-assets/brand/playmaker-logo-512.webp'
-const localHeroArtUrl = '/playmaker-arch-1024.webp'
-const heroArtUrl = 'https://lhsevzucmmzetpshpffv.supabase.co/storage/v1/object/public/website-assets/brand/playmaker-arch-1024.webp'
+const localHeroArtUrl = '/playmaker-arch-transparent.webp'
+const heroArtUrl = 'https://lhsevzucmmzetpshpffv.supabase.co/storage/v1/object/public/website-assets/brand/playmaker-arch-transparent-1024.webp'
 const CapperAnalyticsCharts = lazy(() => import('./CapperAnalyticsCharts'))
 const AllResultsPage = lazy(() => import('./AllResultsPage'))
 const NflPage = lazy(() => import('./NflPage'))

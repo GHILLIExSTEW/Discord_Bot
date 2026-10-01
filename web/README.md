@@ -30,9 +30,10 @@ public logo URL by default and falls back to the optimized local WebP in
 `supabase/migrations/20260930250000_website_assets_bucket.sql` when setting up a
 new Supabase project.
 
-The homepage hero uses the arched artwork from `src/Media/logo_tranparent.jpg`,
-served as `website-assets/brand/playmaker-arch-1024.webp` with a bundled fallback
-at `web/public/playmaker-arch-1024.webp`.
+The homepage hero uses the transparent arched artwork derived from
+`src/Media/logo_transparent.png`, served as
+`website-assets/brand/playmaker-arch-transparent-1024.webp` with a bundled
+fallback at `web/public/playmaker-arch-transparent.webp`.
 
 ## Capper Pages
 
