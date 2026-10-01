@@ -3,12 +3,12 @@
 :root {
   font-family: 'IBM Plex Sans', sans-serif;
   color: #19171f;
-  background: #f5f6f4;
+  background: #f0f2f5;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   --ink: #19171f;
-  --paper: #f5f6f4;
+  --paper: #f0f2f5;
   --white: #ffffff;
   --green: #0b6843;
   --amber: #d5f05b;

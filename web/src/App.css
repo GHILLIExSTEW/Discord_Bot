@@ -1,6 +1,6 @@
 #root { min-height: 100vh; }
 .site-shell { overflow: hidden; }
-.site-header { height: 76px; padding: 0 clamp(20px, 5vw, 76px); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: rgba(245, 246, 244, 0.94); position: sticky; top: 0; z-index: 20; backdrop-filter: blur(12px); }
+.site-header { height: 76px; padding: 0 clamp(20px, 5vw, 76px); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); background: rgba(240, 242, 245, 0.96); position: sticky; top: 0; z-index: 20; backdrop-filter: blur(12px); }
 .brand { min-width: 0; display: flex; align-items: center; text-decoration: none; }
 .brand-logo { width: 62px; height: 62px; display: block; object-fit: cover; }
 .main-nav { display: flex; align-items: center; gap: clamp(18px, 2.5vw, 38px); }
@@ -144,7 +144,7 @@
 .plan-button { width: 100%; color: var(--white); background: var(--ink); }
 .plans-note { margin: 25px 0 0; color: #c9ded4; font-size: 11px; text-align: center; }
 
-.method-section { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: clamp(50px, 9vw, 150px); background: #eceaf2; }
+.method-section { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: clamp(50px, 9vw, 150px); background: #e7e9f0; }
 .method-intro { align-self: start; position: sticky; top: 120px; }
 .method-steps article { padding: 28px 0; display: grid; grid-template-columns: 62px 1fr; gap: 20px; border-top: 1px solid var(--line); }
 .method-steps article:last-child { border-bottom: 1px solid var(--line); }
