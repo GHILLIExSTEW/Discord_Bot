@@ -79,6 +79,14 @@
 .nfl-tabs button.active { border-bottom-color: var(--green); color: var(--green); }
 .nfl-tabs .nfl-retry { display: inline-flex; align-items: center; gap: 7px; margin-left: auto; color: var(--amber); }
 .nfl-games-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.nfl-week-tabs, .nfl-week-panel { grid-column: 1 / -1; }
+.nfl-week-tabs { display: flex; gap: 8px; max-width: 100%; overflow-x: auto; padding: 2px 1px 12px; scrollbar-color: var(--violet) transparent; }
+.nfl-week-tabs button { min-width: 104px; min-height: 58px; padding: 9px 12px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px; border: 1px solid var(--line); color: var(--muted); background: #0b1c1d; text-align: left; }
+.nfl-week-tabs button span { color: var(--ink); font: 700 15px/1 var(--display); text-transform: uppercase; white-space: nowrap; }
+.nfl-week-tabs button small { color: var(--muted); font-size: 10px; }
+.nfl-week-tabs button.active { border-color: var(--green); background: rgba(150, 211, 141, 0.1); }
+.nfl-week-tabs button.active span, .nfl-week-tabs button.active small { color: var(--green); }
+.nfl-week-panel { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .nfl-game-card-large { padding: 24px; background: #0b1c1d; }
 .nfl-game-teams { max-width: 560px; }
 .nfl-game-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
@@ -229,6 +237,7 @@
   .capper-analytics-grid { grid-template-columns: 1fr; gap: 38px; }
   .nfl-preview-grid { grid-template-columns: 1fr; }
   .nfl-games-list { grid-template-columns: 1fr; }
+  .nfl-week-panel { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
   .site-header { height: 66px; }

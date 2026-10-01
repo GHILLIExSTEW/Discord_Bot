@@ -32,6 +32,7 @@ export default function NflPage() {
   const [syncState, setSyncState] = useState<NflSyncStatus[]>([])
   const [state, setState] = useState<PageState>('loading')
   const [view, setView] = useState<View>('schedule')
+  const [selectedWeek, setSelectedWeek] = useState('')
   const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
@@ -51,6 +52,15 @@ export default function NflPage() {
   const newestSync = syncState.filter((item) => item.sync_key === 'daily' && item.success).sort((a, b) => Date.parse(b.last_success_at || '') - Date.parse(a.last_success_at || ''))[0]
   const upcoming = games.filter((game) => !finalStatuses.has(game.status_short)).sort((a, b) => Date.parse(a.kickoff_at) - Date.parse(b.kickoff_at))
   const finalGames = games.filter((game) => finalStatuses.has(game.status_short)).sort((a, b) => Date.parse(b.kickoff_at) - Date.parse(a.kickoff_at))
+  const scheduleWeeks = Array.from(upcoming.reduce((groups, game) => {
+    const week = (game.week || game.stage || 'Other').trim()
+    const weekGames = groups.get(week) ?? []
+    weekGames.push(game)
+    groups.set(week, weekGames)
+    return groups
+  }, new Map<string, NflGame[]>()).entries()).map(([week, weekGames]) => ({ week, games: weekGames }))
+  const activeWeek = scheduleWeeks.some((group) => group.week === selectedWeek) ? selectedWeek : scheduleWeeks[0]?.week || ''
+  const activeWeekGames = scheduleWeeks.find((group) => group.week === activeWeek)?.games || []
   const groupedStandings = ['AFC', 'NFC'].map((conference) => ({
     conference,
     rows: standings.filter((standing) => standing.conference?.toUpperCase() === conference).sort((a, b) => (a.division || '').localeCompare(b.division || '') || a.standing_position - b.standing_position),
@@ -75,7 +85,23 @@ export default function NflPage() {
     {state === 'empty' && <p className="nfl-state">No NFL data has synced yet. The Proxmox bot performs the initial sync on startup.</p>}
 
     {state === 'ready' && view === 'schedule' && <section className="nfl-games-list" aria-label="Upcoming NFL schedule">
-      {upcoming.length ? upcoming.map((game) => <NflGameCard game={game} key={game.game_id} />) : <p className="nfl-state">No upcoming NFL games in the current season.</p>}
+      {scheduleWeeks.length ? <>
+        <div className="nfl-week-tabs" role="tablist" aria-label="Schedule by NFL week">
+          {scheduleWeeks.map((group) => <button
+            key={group.week}
+            className={activeWeek === group.week ? 'active' : ''}
+            type="button"
+            role="tab"
+            aria-selected={activeWeek === group.week}
+            onClick={() => setSelectedWeek(group.week)}
+          >
+            <span>{group.week}</span><small>{group.games.length} games</small>
+          </button>)}
+        </div>
+        <div className="nfl-week-panel" role="tabpanel" aria-label={`${activeWeek} schedule`}>
+          {activeWeekGames.map((game) => <NflGameCard game={game} key={game.game_id} />)}
+        </div>
+      </> : <p className="nfl-state">No upcoming NFL games in the current season.</p>}
     </section>}
 
     {state === 'ready' && view === 'scores' && <section className="nfl-games-list" aria-label="NFL scores">
