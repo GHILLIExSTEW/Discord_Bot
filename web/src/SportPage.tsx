@@ -44,6 +44,12 @@ function formatKickoff(value: string): string {
   return new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }).format(new Date(value))
 }
 
+function easternDateKey(value: string | number): string {
+  const parts = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'America/New_York' }).formatToParts(new Date(value))
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${values.year}-${values.month}-${values.day}`
+}
+
 function formatScheduleGroupLabel(sportSlug: string, event: SportEvent): string {
   const round = event.round_name?.trim()
   if (round && sportSlug === 'ncaa' && /^\d+$/.test(round)) return `Week ${round}`
@@ -107,9 +113,9 @@ function SportPageContent({ sport, results, loadState }: { sport: (typeof sports
   const wins = sportResults.filter((result) => result.status === 'win').length
   const losses = sportResults.filter((result) => result.status === 'loss').length
   const net = sportResults.reduce((sum, result) => sum + Number(result.net_units), 0)
-  const scheduleCutoff = now - (4 * 60 * 60 * 1000)
-  const upcomingEvents = events.filter((event) => !finalEventStatuses.has(event.status_code.toUpperCase()) && Date.parse(event.start_at) >= scheduleCutoff).sort((first, second) => Date.parse(first.start_at) - Date.parse(second.start_at))
-  const liveEvents = events.filter((event) => !finalEventStatuses.has(event.status_code.toUpperCase()) && Date.parse(event.start_at) <= now && Date.parse(event.start_at) >= scheduleCutoff).sort((first, second) => Date.parse(second.start_at) - Date.parse(first.start_at))
+  const todayKey = easternDateKey(now)
+  const upcomingEvents = events.filter((event) => !finalEventStatuses.has(event.status_code.toUpperCase()) && easternDateKey(event.start_at) >= todayKey).sort((first, second) => Date.parse(first.start_at) - Date.parse(second.start_at))
+  const liveEvents = events.filter((event) => !finalEventStatuses.has(event.status_code.toUpperCase()) && easternDateKey(event.start_at) === todayKey && Date.parse(event.start_at) <= now).sort((first, second) => Date.parse(second.start_at) - Date.parse(first.start_at))
   const finalEvents = events.filter((event) => finalEventStatuses.has(event.status_code.toUpperCase())).sort((first, second) => Date.parse(second.start_at) - Date.parse(first.start_at))
   const scoreEvents = [...liveEvents, ...finalEvents]
   const leagueGroups = Array.from(upcomingEvents.reduce((groups, event) => {
