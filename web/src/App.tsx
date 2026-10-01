@@ -5,6 +5,7 @@ import {
   MessageCircle, ShieldCheck, X,
 } from 'lucide-react'
 import { BrowserRouter, Link, useLocation } from 'react-router-dom'
+import { getCapperAvatarUrl } from './capperAvatars'
 import './App.css'
 
 type ResultStatus = 'win' | 'loss' | 'void' | 'partial'
@@ -53,7 +54,7 @@ function summarizeCappers(results: Result[]): CapperSummary[] {
     const summary = summaries.get(result.capper) ?? {
       name: result.capper,
       slug: capperSlug(result.capper),
-      avatar_url: result.avatar_url,
+      avatar_url: result.avatar_url ?? getCapperAvatarUrl(result.capper),
       plays: 0,
       wins: 0,
       losses: 0,
@@ -61,7 +62,7 @@ function summarizeCappers(results: Result[]): CapperSummary[] {
     }
     summary.plays += 1
     summary.net_units += Number(result.net_units)
-    summary.avatar_url ??= result.avatar_url
+    summary.avatar_url ??= result.avatar_url ?? getCapperAvatarUrl(result.capper)
     if (result.status === 'win') summary.wins += 1
     if (result.status === 'loss') summary.losses += 1
     summaries.set(result.capper, summary)
