@@ -22,11 +22,11 @@ function grants anonymous access only to the restricted settled-results query.
 
 ## Brand Logo
 
-The brand mark is stored at
-`website-assets/brand/playmaker-logo-512.webp` in the dedicated public Supabase
-Storage bucket. The existing `Media` bucket remains private. The site uses the
-public logo URL by default and falls back to the optimized local WebP in
-`web/public/playmaker-logo.webp` if storage is unavailable. Apply
+The transparent brand mark is stored at
+`website-assets/brand/playmaker-mark-transparent-512.webp` in the dedicated
+public Supabase Storage bucket. The existing `Media` bucket remains private.
+The site uses the public logo URL by default and falls back to the optimized
+local WebP in `web/public/playmaker-mark-transparent.webp` if storage is unavailable. Apply
 `supabase/migrations/20260930250000_website_assets_bucket.sql` when setting up a
 new Supabase project.
 
