@@ -139,14 +139,16 @@ export default function MemberAccountPage() {
     const isFavorite = favoriteSportIds.includes(sportId)
     const key = `sport:${sportId}`
     setBusyKey(key)
-    setMessage('')
+    setFavoriteSportIds((current) => isFavorite ? current.filter((id) => id !== sportId) : [...current, sportId])
+    setMessage('Saving sport preference…')
     try {
       const result = isFavorite
         ? await supabase.from('member_favorite_sports').delete().eq('user_id', session.user.id).eq('sport_id', sportId)
         : await supabase.from('member_favorite_sports').insert({ user_id: session.user.id, sport_id: sportId })
       if (result.error) throw result.error
-      setFavoriteSportIds((current) => isFavorite ? current.filter((id) => id !== sportId) : [...current, sportId])
+      setMessage('Sport preference saved.')
     } catch {
+      setFavoriteSportIds((current) => isFavorite ? [...current, sportId] : current.filter((id) => id !== sportId))
       setMessage('Could not save that sport. Confirm your age verification is complete and retry.')
     } finally {
       setBusyKey('')
@@ -158,14 +160,16 @@ export default function MemberAccountPage() {
     const key = capperKey(capper.sport_id, capper.capper_name)
     const isFavorite = favoriteCapperKeys.includes(key)
     setBusyKey(`capper:${key}`)
-    setMessage('')
+    setFavoriteCapperKeys((current) => isFavorite ? current.filter((item) => item !== key) : [...current, key])
+    setMessage('Saving capper preference…')
     try {
       const result = isFavorite
         ? await supabase.from('member_favorite_cappers').delete().eq('user_id', session.user.id).eq('sport_id', capper.sport_id).eq('capper_name', capper.capper_name)
         : await supabase.from('member_favorite_cappers').insert({ user_id: session.user.id, sport_id: capper.sport_id, capper_name: capper.capper_name })
       if (result.error) throw result.error
-      setFavoriteCapperKeys((current) => isFavorite ? current.filter((item) => item !== key) : [...current, key])
+      setMessage('Capper preference saved.')
     } catch {
+      setFavoriteCapperKeys((current) => isFavorite ? [...current, key] : current.filter((item) => item !== key))
       setMessage('Could not save that capper. Confirm your age verification is complete and retry.')
     } finally {
       setBusyKey('')
@@ -237,7 +241,7 @@ export default function MemberAccountPage() {
       <div className="account-section-heading"><p className="eyebrow">01 · Sports</p><h2>Pick your sports.</h2></div>
       <div className="account-sports-list">
         {sports.map((sport) => <label className="account-choice" key={sport.id}>
-          <input type="checkbox" checked={favoriteSportIds.includes(sport.id)} disabled={busyKey === `sport:${sport.id}`} onChange={() => toggleSport(sport.id)} />
+          <input type="checkbox" checked={favoriteSportIds.includes(sport.id)} disabled={Boolean(busyKey)} onChange={() => toggleSport(sport.id)} />
           <span>{sport.name}</span>
         </label>)}
       </div>
@@ -250,7 +254,7 @@ export default function MemberAccountPage() {
           {group.cappers.map((capper) => {
             const key = capperKey(capper.sport_id, capper.capper_name)
             return <label className="account-choice" key={key}>
-              <input type="checkbox" checked={favoriteCapperKeys.includes(key)} disabled={busyKey === `capper:${key}`} onChange={() => toggleCapper(capper)} />
+              <input type="checkbox" checked={favoriteCapperKeys.includes(key)} disabled={Boolean(busyKey)} onChange={() => toggleCapper(capper)} />
               <span>{capper.capper_name}</span>
             </label>
           })}
