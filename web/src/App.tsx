@@ -1,11 +1,13 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import {
-  ArrowRight, Check, Menu,
+  ArrowRight, Menu,
   MessageCircle, X,
 } from 'lucide-react'
 import { BrowserRouter, Link, useLocation } from 'react-router-dom'
 import { getCapperAvatarUrl } from './capperAvatars'
 import { supabase } from './supabaseClient'
+import { sportsCatalog } from './sportsCatalog'
+import SportsDropdown from './SportsDropdown'
 import './App.css'
 
 type ResultStatus = 'win' | 'loss' | 'void' | 'partial'
@@ -36,6 +38,8 @@ const NflHomePreview = lazy(() => import('./NflHomePreview'))
 const MemberAccountPage = lazy(() => import('./MemberAccountPage'))
 const MemberPublicPage = lazy(() => import('./MemberPublicPage'))
 const MemberHomeFeed = lazy(() => import('./MemberHomeFeed'))
+const MembershipPage = lazy(() => import('./MembershipPage'))
+const SportPage = lazy(() => import('./SportPage'))
 
 async function fetchPublicResults(): Promise<Result[]> {
   if (!supabase) throw new Error('Public Supabase configuration is missing.')
@@ -151,12 +155,6 @@ function formatNetUnits(value: number): string {
   return `${sign}${new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(Math.abs(amount))}u`
 }
 
-const plans = [
-  { name: 'Free', price: '$0', description: 'See how we work before you join the card.', features: ['Verified public record', 'Weekly recap', 'Occasional free play', 'Community announcements'], action: 'Join the free community' },
-  { name: 'Starter', price: '$9.99', description: 'A focused daily card without the noise.', features: ['Typically 1–2 curated plays', 'Standard Discord alerts', 'Full result tracking', 'Starter discussion access'], action: 'Get launch updates' },
-  { name: 'All Access', price: '$19.99', description: 'Every official play, as soon as it posts.', features: ['Every approved capper', 'Real-time alerts', 'Full analysis and archive', 'Complete clubhouse access'], action: 'Get launch updates', featured: true },
-]
-
 function App() {
   return <BrowserRouter><Website /></BrowserRouter>
 }
@@ -164,6 +162,7 @@ function App() {
 function Website() {
   const location = useLocation()
   const routePath = location.pathname.replace(/\/+$/, '') || '/'
+  const sportRouteSlug = routePath.startsWith('/sports/') ? routePath.slice('/sports/'.length) : null
   const [menuOpen, setMenuOpen] = useState(false)
   const [sport, setSport] = useState('All')
   const [results, setResults] = useState<Result[]>([])
@@ -226,6 +225,10 @@ function Website() {
         ? 'Settled Results | Playmaker Picks'
         : routePath === '/account'
           ? 'Member Account | Playmaker Picks'
+            : routePath === '/membership'
+              ? 'Membership | Playmaker Picks'
+              : sportRouteSlug
+                ? `${sportsCatalog.find((item) => item.slug === sportRouteSlug)?.name || 'Sport'} | Playmaker Picks`
         : 'Playmaker Picks | Sports Analysis With Receipts'
     document.querySelector('meta[name="description"]')?.setAttribute(
       'content',
@@ -233,7 +236,7 @@ function Website() {
         ? `${selectedCapperName}'s official settled-play record, performance graphs, and results.`
         : 'Verified sports analysis, transparent play tracking, and the Playmaker Picks community.',
     )
-  }, [routePath, selectedCapperName])
+  }, [routePath, selectedCapperName, sportRouteSlug])
   const capperResults = selectedCapper ? results.filter((result) => result.capper === selectedCapper.name) : []
   const capperAnalytics = buildCapperAnalytics(capperResults)
   const capperWins = capperResults.filter((result) => result.status === 'win').length
@@ -253,10 +256,10 @@ function Website() {
         </Link>
         <nav className={menuOpen ? 'main-nav is-open' : 'main-nav'} aria-label="Primary navigation">
           <a href="/results" onClick={closeMenu}>Results</a>
-          <a href="/nfl" onClick={closeMenu}>NFL</a>
+          <SportsDropdown onNavigate={closeMenu} />
           <a href="/account" onClick={closeMenu}>Account</a>
           <a href={sectionHref('cappers')} onClick={closeMenu}>Cappers</a>
-          <a href={sectionHref('plans')} onClick={closeMenu}>Membership</a>
+          <Link to="/membership" onClick={closeMenu}>Membership</Link>
           <a href={sectionHref('method')} onClick={closeMenu}>Method</a>
           <a className="nav-community" href="https://discord.gg/mwxRsWUp5W" target="_blank" rel="noreferrer" onClick={closeMenu}>Join Discord <ArrowRight size={16} /></a>
         </nav>
@@ -271,6 +274,14 @@ function Website() {
         ) : routePath === '/account' ? (
           <Suspense fallback={<section className="account-page"><p className="account-state">Loading account…</p></section>}>
             <MemberAccountPage />
+          </Suspense>
+        ) : routePath === '/membership' ? (
+          <Suspense fallback={<section className="membership-page"><p className="account-state">Loading membership options…</p></section>}>
+            <MembershipPage />
+          </Suspense>
+        ) : sportRouteSlug ? (
+          <Suspense fallback={<section className="sport-page"><p className="account-state">Loading sport page…</p></section>}>
+            <SportPage slug={sportRouteSlug} results={results} loadState={loadState} />
           </Suspense>
         ) : routePath === '/nfl' ? (
           <Suspense fallback={<section className="nfl-page"><p className="nfl-state">Loading NFL data…</p></section>}>
@@ -418,22 +429,9 @@ function Website() {
           </div>
         </section>
 
-        <section className="plans-section scroll-reveal" id="plans">
-          <div className="section-heading light">
-            <div><p className="eyebrow">Membership</p><h2>Pick your seat.</h2></div>
-            <p>Start with the record, move to a focused card, or open the whole room. Paid membership enrollment opens soon.</p>
-          </div>
-          <div className="plan-grid">
-            {plans.map((plan) => (
-              <article className={plan.featured ? 'plan-card featured' : 'plan-card'} key={plan.name}>
-                {plan.featured && <span className="plan-flag">Full card</span>}<h3>{plan.name}</h3>
-                <div className="price"><strong>{plan.price}</strong><span>{plan.price !== '$0' ? '/ month' : 'forever'}</span></div>
-                <p>{plan.description}</p><ul>{plan.features.map((feature) => <li key={feature}><Check size={17} />{feature}</li>)}</ul>
-                <a className="button plan-button" href="mailto:support@playmakersportsanalytics.com?subject=Playmaker%20Picks%20launch%20updates">{plan.action}<ArrowRight size={17} /></a>
-              </article>
-            ))}
-          </div>
-          <p className="plans-note">Prices are proposed for launch and may change before checkout opens. No outcome or profit is guaranteed.</p>
+        <section className="membership-promo scroll-reveal" id="membership">
+          <div><p className="eyebrow">Membership</p><h2>Find your seat.</h2><p>See the proposed plans, feature breakdown, and what’s coming before enrollment opens.</p></div>
+          <Link className="button membership-promo-link" to="/membership">Compare plans &amp; features <ArrowRight size={17} /></Link>
         </section>
 
         <section className="method-section scroll-reveal" id="method">
