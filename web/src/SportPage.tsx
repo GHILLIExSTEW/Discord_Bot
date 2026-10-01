@@ -44,6 +44,12 @@ function formatKickoff(value: string): string {
   return new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }).format(new Date(value))
 }
 
+function formatScheduleGroupLabel(sportSlug: string, event: SportEvent): string {
+  const round = event.round_name?.trim()
+  if (round && sportSlug === 'ncaa' && /^\d+$/.test(round)) return `Week ${round}`
+  return round || formatDate(event.start_at)
+}
+
 function signedUnits(value: number): string {
   const amount = Number(value)
   const sign = amount > 0 ? '+' : amount < 0 ? '-' : ''
@@ -103,7 +109,7 @@ function SportPageContent({ sport, results, loadState }: { sport: (typeof sports
   const activeLeague = leagueGroups.some((group) => group.label === selectedLeague) ? selectedLeague : leagueGroups[0]?.label || ''
   const activeLeagueEvents = leagueGroups.find((group) => group.label === activeLeague)?.events || []
   const scheduleGroups = Array.from(activeLeagueEvents.reduce((groups, event) => {
-    const label = event.round_name?.trim() || formatDate(event.start_at)
+    const label = formatScheduleGroupLabel(sport.slug, event)
     const groupEvents = groups.get(label) ?? []
     groupEvents.push(event)
     groups.set(label, groupEvents)
