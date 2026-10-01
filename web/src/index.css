@@ -2,20 +2,20 @@
 
 :root {
   font-family: 'IBM Plex Sans', sans-serif;
-  color: #19171f;
-  background: #f3f2f7;
+  color: #f2f1f7;
+  background: #040916;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --ink: #19171f;
-  --paper: #f3f2f7;
-  --white: #ffffff;
-  --green: #08754a;
-  --amber: #d1ff31;
-  --coral: #d94f45;
-  --violet: #7041d2;
-  --line: rgba(25, 23, 31, 0.15);
-  --muted: #66636e;
+  --ink: #f2f1f7;
+  --paper: #040916;
+  --white: #111623;
+  --green: #96d38d;
+  --amber: #b6e8a3;
+  --coral: #e27a78;
+  --violet: #68268c;
+  --line: rgba(210, 213, 230, 0.17);
+  --muted: #a7a8b3;
   --display: 'Barlow Condensed', sans-serif;
 }
 * { box-sizing: border-box; }
@@ -24,7 +24,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: linear-gradient(rgba(25, 23, 31, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(25, 23, 31, 0.035) 1px, transparent 1px), var(--paper);
+  background: linear-gradient(rgba(210, 213, 230, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(210, 213, 230, 0.035) 1px, transparent 1px), var(--paper);
   background-size: 28px 28px;
 }
 button, a { font: inherit; }
