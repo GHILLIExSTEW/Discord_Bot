@@ -98,9 +98,11 @@ The website reads `public_nfl_games`, `public_nfl_standings`, and
 1. Run `supabase/migrations/20260930300000_api_sports_multi_event_cache.sql` in
   Supabase SQL Editor. It creates a private event cache and a public read-only
   RPC.
-2. The Proxmox bot uses `API_SPORTS_KEY` from its server-side `.env`; never put
+2. Run `supabase/migrations/20260930310000_add_ncaa_public_event_feed.sql` to
+  expose the dedicated NCAA feed through that RPC.
+3. The Proxmox bot uses `API_SPORTS_KEY` from its server-side `.env`; never put
   this key in Amplify or a `VITE_*` setting.
-3. The daily sync requests a rolling seven-day schedule for each reachable
+4. The daily sync requests a rolling seven-day schedule for each reachable
   date-based API, plus the current Formula 1 season. Live scores are refreshed
   every 15 minutes only for sports with a cached game near/in progress.
 
