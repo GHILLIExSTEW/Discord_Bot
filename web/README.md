@@ -44,6 +44,27 @@ access remains restricted by the RPC and its grants. In **Hosting → Rewrites
 and redirects**, add a rewrite from `/<*>` to `/index.html` with status `200`
 so direct visits and bookmarks to capper pages load the SPA.
 
+## Member Accounts
+
+1. Run `supabase/migrations/20260930270000_member_accounts_favorites.sql` in
+  Supabase SQL Editor.
+2. In Supabase **Authentication → Providers**, enable Discord and enter the
+  Discord application's client ID and newly rotated client secret.
+3. Copy the Supabase Discord callback URL shown for the provider (typically
+  `https://<project-ref>.supabase.co/auth/v1/callback`) into Discord Developer
+  Portal → OAuth2 → Redirects. Do not use the website's `/OauthURI/redirect`
+  path as the provider callback.
+4. In Supabase **Authentication → URL Configuration**, set the production Site
+  URL to `https://playmakersportsanalytics.com` and allow the production and
+  local `/account` redirect URLs.
+
+The account page signs members in with Discord. It sends date of birth to the
+`verify_member_age` database function, which checks the 21+ threshold and saves
+only a verification timestamp; it does not store the birth date. Favorites are
+available only after verification and are restricted to the signed-in user by
+row-level security. This is self-attested age verification, not an identity or
+document verification service.
+
 ## NFL API-Sports Feed
 
 1. Run `supabase/migrations/20260930260000_api_sports_nfl.sql` in Supabase SQL

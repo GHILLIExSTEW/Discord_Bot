@@ -31,6 +31,7 @@ const CapperAnalyticsCharts = lazy(() => import('./CapperAnalyticsCharts'))
 const AllResultsPage = lazy(() => import('./AllResultsPage'))
 const NflPage = lazy(() => import('./NflPage'))
 const NflHomePreview = lazy(() => import('./NflHomePreview'))
+const MemberAccountPage = lazy(() => import('./MemberAccountPage'))
 
 async function fetchPublicResults(): Promise<Result[]> {
   if (!supabase) throw new Error('Public Supabase configuration is missing.')
@@ -193,6 +194,8 @@ function Website() {
       ? `${selectedCapperName} | Playmaker Picks`
       : routePath === '/results'
         ? 'Settled Results | Playmaker Picks'
+        : routePath === '/account'
+          ? 'Member Account | Playmaker Picks'
         : 'Playmaker Picks | Sports Analysis With Receipts'
     document.querySelector('meta[name="description"]')?.setAttribute(
       'content',
@@ -221,6 +224,7 @@ function Website() {
         <nav className={menuOpen ? 'main-nav is-open' : 'main-nav'} aria-label="Primary navigation">
           <a href="/results" onClick={closeMenu}>Results</a>
           <a href="/nfl" onClick={closeMenu}>NFL</a>
+          <a href="/account" onClick={closeMenu}>Account</a>
           <a href={sectionHref('cappers')} onClick={closeMenu}>Cappers</a>
           <a href={sectionHref('plans')} onClick={closeMenu}>Membership</a>
           <a href={sectionHref('method')} onClick={closeMenu}>Method</a>
@@ -230,7 +234,11 @@ function Website() {
       </header>
 
       <main id="top">
-        {routePath === '/nfl' ? (
+        {routePath === '/account' ? (
+          <Suspense fallback={<section className="account-page"><p className="account-state">Loading account…</p></section>}>
+            <MemberAccountPage />
+          </Suspense>
+        ) : routePath === '/nfl' ? (
           <Suspense fallback={<section className="nfl-page"><p className="nfl-state">Loading NFL data…</p></section>}>
             <NflPage />
           </Suspense>
