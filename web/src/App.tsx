@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import {
-  ArrowRight, BarChart3, Check, Clock3, Menu,
-  MessageCircle, ShieldCheck, X,
+  ArrowDown, ArrowRight, Check, Menu,
+  MessageCircle, X,
 } from 'lucide-react'
 import { BrowserRouter, Link, useLocation } from 'react-router-dom'
 import { getCapperAvatarUrl } from './capperAvatars'
@@ -27,6 +27,8 @@ type CapperSummary = { name: string; slug: string; avatar_url?: string | null; p
 const resultsPageSize = 1000
 const localBrandLogoUrl = '/playmaker-logo.webp'
 const brandLogoUrl = import.meta.env.VITE_BRAND_LOGO_URL || 'https://lhsevzucmmzetpshpffv.supabase.co/storage/v1/object/public/website-assets/brand/playmaker-logo-512.webp'
+const localHeroArtUrl = '/playmaker-arch-1024.webp'
+const heroArtUrl = 'https://lhsevzucmmzetpshpffv.supabase.co/storage/v1/object/public/website-assets/brand/playmaker-arch-1024.webp'
 const CapperAnalyticsCharts = lazy(() => import('./CapperAnalyticsCharts'))
 const AllResultsPage = lazy(() => import('./AllResultsPage'))
 const NflPage = lazy(() => import('./NflPage'))
@@ -90,6 +92,17 @@ function BrandLogo({ className }: { className: string }) {
     src={source}
     alt="Playmaker Picks"
     onError={() => { if (source !== localBrandLogoUrl) setSource(localBrandLogoUrl) }}
+  />
+}
+
+function HeroArtwork() {
+  const [source, setSource] = useState(heroArtUrl)
+  return <img
+    className="hero-logo-art"
+    src={source}
+    alt="Arched Playmaker Picks logo"
+    fetchPriority="high"
+    onError={() => { if (source !== localHeroArtUrl) setSource(localHeroArtUrl) }}
   />
 }
 
@@ -179,13 +192,27 @@ function Website() {
     if (sectionId) requestAnimationFrame(() => document.getElementById(sectionId)?.scrollIntoView())
   }, [location.hash, location.pathname])
 
+  useEffect(() => {
+    const targets = document.querySelectorAll<HTMLElement>('.scroll-reveal')
+    if (!('IntersectionObserver' in window)) {
+      targets.forEach((target) => target.classList.add('is-visible'))
+      return
+    }
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible')
+          observer.unobserve(entry.target)
+        }
+      })
+    }, { threshold: 0.08, rootMargin: '0px 0px -8% 0px' })
+    targets.forEach((target) => observer.observe(target))
+    return () => observer.disconnect()
+  }, [routePath])
+
   const sports: string[] = ['All', ...Array.from(new Set(results.map((result) => result.sport)))]
   const visibleResults = sport === 'All' ? results : results.filter((result) => result.sport === sport)
   const cappers = summarizeCappers(results)
-  const netUnits = results.reduce((total, result) => total + Number(result.net_units), 0)
-  const wins = results.filter((result) => result.status === 'win').length
-  const losses = results.filter((result) => result.status === 'loss').length
-  const latestResult = results[0]
   const profileSlug = location.pathname.startsWith('/cappers/') ? decodeURIComponent(location.pathname.slice('/cappers/'.length).replace(/\/$/, '')) : null
   const selectedCapper = cappers.find((capper) => capper.slug === profileSlug)
   const selectedCapperName = selectedCapper?.name
@@ -305,47 +332,19 @@ function Website() {
           <section className="capper-not-found"><p className="eyebrow">Page not found</p><h1>This page isn't on the board.</h1><Link to="/">Return home <ArrowRight size={16} /></Link></section>
         ) : (
           <>
-        <section className="hero-section">
-          <div className="hero-content reveal">
-            <p className="eyebrow"><span className="live-dot" /> Independent sports analysis</p>
-            <h1>Playmaker<br />Picks</h1>
-            <p className="hero-copy">The play is only half the story. See the published line, risk, capper, and final grade from the official settled record.</p>
-            <div className="hero-actions">
-              <a className="button button-primary" href="/results">View settled results <ArrowRight size={18} /></a>
-              <a className="button button-quiet" href="#community"><MessageCircle size={18} /> Join Discord free</a>
-            </div>
+        <section className="hero-section hero-logo-hero">
+          <div className="hero-logo-stage reveal">
+            <h1 className="visually-hidden">Playmaker Picks</h1>
+            <p className="hero-logo-kicker"><span className="live-dot" /> Independent sports analysis</p>
+            <HeroArtwork />
+            <p className="hero-logo-tagline">Official plays. Every result stays on the board.</p>
           </div>
-
-          <div className="slate-board reveal reveal-delay">
-            <div className="board-header">
-              <div><span>Official record</span><strong>{loadState === 'ready' ? 'Settled results' : loadState === 'loading' ? 'Loading record' : loadState === 'configuration' ? 'Connect Supabase' : 'Results unavailable'}</strong></div>
-              <span className="board-state"><Clock3 size={14} />{loadState === 'ready' ? 'Live' : loadState === 'loading' ? 'Loading' : loadState === 'configuration' ? 'Setup needed' : 'Offline'}</span>
-            </div>
-            <div className="slate-metrics">
-              <div><span>Settled plays</span><strong>{loadState === 'ready' ? results.length : '—'}</strong></div>
-              <div><span>Record</span><strong>{loadState === 'ready' ? `${wins}-${losses}` : '—'}</strong></div>
-              <div><span>Net units</span><strong>{loadState === 'ready' ? formatNetUnits(netUnits) : '—'}</strong></div>
-            </div>
-            <div className="free-play" aria-live="polite">
-              <span className="free-play-icon"><BarChart3 size={21} /></span>
-              <span><small>Most recent settled play</small><strong>{latestResult?.selection ?? (loadState === 'ready' ? 'No settled results yet' : 'Settled plays only')}</strong></span>
-              {latestResult && <mark className={`status status-${latestResult.status}`}>{latestResult.status}</mark>}
-            </div>
-            <p className="preview-label">Open plays are excluded · Net units follow the published grading rules</p>
-          </div>
-
-          <div className="trust-strip">
-            <span><ShieldCheck size={18} /> Published plays only</span>
-            <span><BarChart3 size={18} /> Unit-based grading</span>
-            <span><Check size={18} /> Wins and losses included</span>
-          </div>
+          <a className="hero-scroll-cue" href="#results" aria-label="Scroll to official results">
+            <span>Explore the official record</span><ArrowDown size={18} />
+          </a>
         </section>
 
-        <Suspense fallback={<section className="nfl-preview"><p className="nfl-state">Loading NFL schedule…</p></section>}>
-          <NflHomePreview />
-        </Suspense>
-
-        <section className="results-section" id="results">
+        <section className="results-section scroll-reveal" id="results">
           <div className="section-heading">
             <div><p className="eyebrow">The settled ledger</p><h2>Built for receipts, not promises.</h2></div>
             <p>Official plays appear here after they settle, with the original published line, risk, capper, and final grade. Open plays and private account details are never returned by the public data endpoint.</p>
@@ -384,7 +383,11 @@ function Website() {
           </div>
         </section>
 
-        <section className="cappers-section" id="cappers">
+        <Suspense fallback={<section className="nfl-preview"><p className="nfl-state">Loading NFL schedule…</p></section>}>
+          <NflHomePreview />
+        </Suspense>
+
+        <section className="cappers-section scroll-reveal" id="cappers">
           <div className="section-heading compact">
             <div><p className="eyebrow">The room</p><h2>Know who made the call.</h2></div>
             <p>Capper summaries below are calculated from published, settled plays. Private member details are not included.</p>
@@ -404,7 +407,7 @@ function Website() {
           </div>
         </section>
 
-        <section className="plans-section" id="plans">
+        <section className="plans-section scroll-reveal" id="plans">
           <div className="section-heading light">
             <div><p className="eyebrow">Membership</p><h2>Pick your seat.</h2></div>
             <p>Start with the record, move to a focused card, or open the whole room. Paid membership enrollment opens soon.</p>
@@ -422,7 +425,7 @@ function Website() {
           <p className="plans-note">Prices are proposed for launch and may change before checkout opens. No outcome or profit is guaranteed.</p>
         </section>
 
-        <section className="method-section" id="method">
+        <section className="method-section scroll-reveal" id="method">
           <div className="method-intro"><p className="eyebrow">How the board works</p><h2>Clarity before confidence.</h2></div>
           <div className="method-steps">
             <article><span>01</span><div><h3>Post</h3><p>Every play records its author, odds, units, and publish time before the event begins.</p></div></article>
@@ -432,7 +435,7 @@ function Website() {
           </div>
         </section>
 
-        <section className="community-section" id="community">
+        <section className="community-section scroll-reveal" id="community">
           <div><p className="eyebrow">The clubhouse</p><h2>The card moves fast.<br />The record stays put.</h2></div>
           <div className="community-copy"><p>Discord carries live alerts and conversation. The website keeps the durable analysis, searchable discussion, and complete history.</p>
             <a className="button button-accent" href="mailto:support@playmakersportsanalytics.com?subject=Playmaker%20Picks%20Discord%20invite"><MessageCircle size={18} /> Request a Discord invite</a>
