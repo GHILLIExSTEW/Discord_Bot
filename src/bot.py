@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 import discord
 from discord.ext import commands, tasks
 
-from src.config import APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, OPERATOR_ROLE_IDS, PARTIAL_REACTION, RESULT_CHANNEL_ID, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, TRACKER_START_DATE, VOID_REACTION, WIN_REACTION
+from src.config import API_SPORTS_KEY, APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, OPERATOR_ROLE_IDS, PARTIAL_REACTION, RESULT_CHANNEL_ID, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, TRACKER_START_DATE, VOID_REACTION, WIN_REACTION
 from src.services.official_play_service import OfficialPlayService
 from src.services.supabase_service import supabase_service
 from src.services.team_ranking_service import TeamRankingService
@@ -17,11 +17,14 @@ from src.services.play_service import PlayService
 from src.services.image_play_service import image_play_service
 from src.services.diagnostic_service import diagnostic_service
 from src.services.tracker_image_service import render_tracker_image
+from src.services.api_sports_service import api_sports_service
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("official_play_bot")
 TRACKER_TIMEZONE = ZoneInfo("America/New_York")
 TRACKER_UPDATE_TIMES = [datetime_time(hour=hour, minute=0, tzinfo=TRACKER_TIMEZONE) for hour in range(24)]
+API_SPORTS_DAILY_SYNC_TIME = datetime_time(hour=6, minute=10, tzinfo=TRACKER_TIMEZONE)
+nfl_initial_sync_started = False
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -409,11 +412,59 @@ async def before_hourly_tracker_update() -> None:
     await bot.wait_until_ready()
 
 
+@tasks.loop(time=API_SPORTS_DAILY_SYNC_TIME)
+async def daily_nfl_data_sync() -> None:
+    try:
+        result = await asyncio.to_thread(api_sports_service.sync_daily)
+        logger.info("api_sports_daily_sync_complete result=%s", result)
+    except Exception:
+        logger.exception("api_sports_daily_sync_failed")
+
+
+@daily_nfl_data_sync.before_loop
+async def before_daily_nfl_data_sync() -> None:
+    await bot.wait_until_ready()
+
+
+@tasks.loop(minutes=15)
+async def live_nfl_score_sync() -> None:
+    try:
+        should_sync = await asyncio.to_thread(api_sports_service.should_sync_live_scores)
+        if not should_sync:
+            return
+        result = await asyncio.to_thread(api_sports_service.sync_live_scores)
+        logger.info("api_sports_live_score_sync_complete result=%s", result)
+    except Exception:
+        logger.exception("api_sports_live_score_sync_failed")
+
+
+@live_nfl_score_sync.before_loop
+async def before_live_nfl_score_sync() -> None:
+    await bot.wait_until_ready()
+
+
+async def initial_nfl_data_sync() -> None:
+    try:
+        result = await asyncio.to_thread(api_sports_service.sync_daily)
+        logger.info("api_sports_initial_sync_complete result=%s", result)
+    except Exception:
+        logger.exception("api_sports_initial_sync_failed")
+
+
 @bot.event
 async def on_ready():
+    global nfl_initial_sync_started
     print(f"Logged in as {bot.user}")
     if not hourly_tracker_update.is_running():
         hourly_tracker_update.start()
+    if API_SPORTS_KEY:
+        if not daily_nfl_data_sync.is_running():
+            daily_nfl_data_sync.start()
+        if not live_nfl_score_sync.is_running():
+            live_nfl_score_sync.start()
+        if not nfl_initial_sync_started:
+            nfl_initial_sync_started = True
+            asyncio.create_task(initial_nfl_data_sync())
 
 
 @bot.event

@@ -1,11 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
 import {
   ArrowRight, BarChart3, Check, Clock3, Menu,
   MessageCircle, ShieldCheck, X,
 } from 'lucide-react'
 import { BrowserRouter, Link, useLocation } from 'react-router-dom'
 import { getCapperAvatarUrl } from './capperAvatars'
+import { supabase } from './supabaseClient'
 import './App.css'
 
 type ResultStatus = 'win' | 'loss' | 'void' | 'partial'
@@ -25,15 +25,12 @@ type LoadState = 'loading' | 'ready' | 'error' | 'configuration'
 type CapperSummary = { name: string; slug: string; avatar_url?: string | null; plays: number; wins: number; losses: number; net_units: number }
 
 const resultsPageSize = 1000
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://lhsevzucmmzetpshpffv.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_D9eAtkAVD6WEAmLj5BgnBg_fiM5MVM2'
 const localBrandLogoUrl = '/playmaker-logo.webp'
 const brandLogoUrl = import.meta.env.VITE_BRAND_LOGO_URL || 'https://lhsevzucmmzetpshpffv.supabase.co/storage/v1/object/public/website-assets/brand/playmaker-logo-512.webp'
-const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey, {
-  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-}) : null
 const CapperAnalyticsCharts = lazy(() => import('./CapperAnalyticsCharts'))
 const AllResultsPage = lazy(() => import('./AllResultsPage'))
+const NflPage = lazy(() => import('./NflPage'))
+const NflHomePreview = lazy(() => import('./NflHomePreview'))
 
 async function fetchPublicResults(): Promise<Result[]> {
   if (!supabase) throw new Error('Public Supabase configuration is missing.')
@@ -153,12 +150,10 @@ function Website() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [sport, setSport] = useState('All')
   const [results, setResults] = useState<Result[]>([])
-  const [loadState, setLoadState] = useState<LoadState>(supabase ? 'loading' : 'configuration')
+  const [loadState, setLoadState] = useState<LoadState>('loading')
   const [retryCount, setRetryCount] = useState(0)
   useEffect(() => {
     let cancelled = false
-    if (!supabase) return () => { cancelled = true }
-
     fetchPublicResults()
       .then((loadedResults) => {
         if (!cancelled) {
@@ -224,6 +219,7 @@ function Website() {
         </Link>
         <nav className={menuOpen ? 'main-nav is-open' : 'main-nav'} aria-label="Primary navigation">
           <a href="/results" onClick={closeMenu}>Results</a>
+          <a href="/nfl" onClick={closeMenu}>NFL</a>
           <a href={sectionHref('cappers')} onClick={closeMenu}>Cappers</a>
           <a href={sectionHref('plans')} onClick={closeMenu}>Membership</a>
           <a href={sectionHref('method')} onClick={closeMenu}>Method</a>
@@ -233,7 +229,11 @@ function Website() {
       </header>
 
       <main id="top">
-        {location.pathname === '/results' ? (
+        {location.pathname === '/nfl' ? (
+          <Suspense fallback={<section className="nfl-page"><p className="nfl-state">Loading NFL data…</p></section>}>
+            <NflPage />
+          </Suspense>
+        ) : location.pathname === '/results' ? (
           <Suspense fallback={<section className="results-page results-section"><p className="results-empty">Loading the full results ledger…</p></section>}>
             <AllResultsPage
               results={visibleResults}
@@ -331,6 +331,10 @@ function Website() {
             <span><Check size={18} /> Wins and losses included</span>
           </div>
         </section>
+
+        <Suspense fallback={<section className="nfl-preview"><p className="nfl-state">Loading NFL schedule…</p></section>}>
+          <NflHomePreview />
+        </Suspense>
 
         <section className="results-section" id="results">
           <div className="section-heading">

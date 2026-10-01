@@ -44,6 +44,21 @@ access remains restricted by the RPC and its grants. In **Hosting → Rewrites
 and redirects**, add a rewrite from `/<*>` to `/index.html` with status `200`
 so direct visits and bookmarks to capper pages load the SPA.
 
+## NFL API-Sports Feed
+
+1. Run `supabase/migrations/20260930260000_api_sports_nfl.sql` in Supabase SQL
+  Editor. It creates private cache tables and public read-only RPCs.
+2. Add `API_SPORTS_KEY` to the Proxmox bot's `/opt/discord-bot/.env`. Keep this
+  key server-side; never add it to Amplify or a `VITE_*` variable.
+3. Deploy/restart the bot. It performs an initial sync, then a daily sync at
+  6:10 AM Eastern for the full-season schedule, standings, and teams: three
+  API requests per successful daily sync.
+4. During cached game windows only, the bot checks scores every 15 minutes with
+  one date-scoped request. Outside those windows it makes no live-score calls.
+
+The website reads `public_nfl_games`, `public_nfl_standings`, and
+`public_nfl_data_status` from Supabase. It never calls API-Sports directly.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
