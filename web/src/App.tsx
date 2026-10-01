@@ -147,6 +147,7 @@ function App() {
 
 function Website() {
   const location = useLocation()
+  const routePath = location.pathname.replace(/\/+$/, '') || '/'
   const [menuOpen, setMenuOpen] = useState(false)
   const [sport, setSport] = useState('All')
   const [results, setResults] = useState<Result[]>([])
@@ -190,7 +191,7 @@ function Website() {
   useEffect(() => {
     document.title = selectedCapperName
       ? `${selectedCapperName} | Playmaker Picks`
-      : location.pathname === '/results'
+      : routePath === '/results'
         ? 'Settled Results | Playmaker Picks'
         : 'Playmaker Picks | Sports Analysis With Receipts'
     document.querySelector('meta[name="description"]')?.setAttribute(
@@ -199,7 +200,7 @@ function Website() {
         ? `${selectedCapperName}'s official settled-play record, performance graphs, and results.`
         : 'Verified sports analysis, transparent play tracking, and the Playmaker Picks community.',
     )
-  }, [location.pathname, selectedCapperName])
+  }, [routePath, selectedCapperName])
   const capperResults = selectedCapper ? results.filter((result) => result.capper === selectedCapper.name) : []
   const capperAnalytics = buildCapperAnalytics(capperResults)
   const capperWins = capperResults.filter((result) => result.status === 'win').length
@@ -208,7 +209,7 @@ function Website() {
   const capperSports = ['All', ...Array.from(new Set(capperResults.map((result) => result.sport)))]
   const visibleCapperResults = sport === 'All' ? capperResults : capperResults.filter((result) => result.sport === sport)
   const closeMenu = () => setMenuOpen(false)
-  const sectionHref = (section: string) => location.pathname === '/' ? `#${section}` : `/#${section}`
+  const sectionHref = (section: string) => routePath === '/' ? `#${section}` : `/#${section}`
   const homepageResults = visibleResults.slice(0, 10)
 
   return (
@@ -229,11 +230,11 @@ function Website() {
       </header>
 
       <main id="top">
-        {location.pathname === '/nfl' ? (
+        {routePath === '/nfl' ? (
           <Suspense fallback={<section className="nfl-page"><p className="nfl-state">Loading NFL data…</p></section>}>
             <NflPage />
           </Suspense>
-        ) : location.pathname === '/results' ? (
+        ) : routePath === '/results' ? (
           <Suspense fallback={<section className="results-page results-section"><p className="results-empty">Loading the full results ledger…</p></section>}>
             <AllResultsPage
               results={visibleResults}
@@ -292,7 +293,7 @@ function Website() {
           </section>
         ) : profileSlug ? (
           <section className="capper-not-found"><p className="eyebrow">Capper profile</p><h1>{loadState === 'loading' ? 'Loading record' : loadState === 'error' ? 'Record unavailable' : 'Profile not found'}</h1><Link to="/#cappers">Return to all cappers <ArrowRight size={16} /></Link></section>
-        ) : location.pathname !== '/' ? (
+        ) : routePath !== '/' ? (
           <section className="capper-not-found"><p className="eyebrow">Page not found</p><h1>This page isn't on the board.</h1><Link to="/">Return home <ArrowRight size={16} /></Link></section>
         ) : (
           <>
