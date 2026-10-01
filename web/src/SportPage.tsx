@@ -50,6 +50,11 @@ function formatScheduleGroupLabel(sportSlug: string, event: SportEvent): string 
   return round || formatDate(event.start_at)
 }
 
+function eventSeasonLabel(sportName: string, event: SportEvent): string {
+  if (sportName === 'NCAA') return String(new Date(event.start_at).getFullYear())
+  return event.season || ''
+}
+
 function signedUnits(value: number): string {
   const amount = Number(value)
   const sign = amount > 0 ? '+' : amount < 0 ? '-' : ''
@@ -225,6 +230,6 @@ function SportEventCard({ event, sportName }: { event: SportEvent; sportName: st
       {event.away_name && <SportEventTeam name={event.away_name} logo={event.away_logo} score={event.away_score} />}
       {event.home_name && <SportEventTeam name={event.home_name} logo={event.home_logo} score={event.home_score} />}
     </div>}
-    <div className="sport-event-footer"><span>{event.venue?.name || event.season || ''}</span><span className={`nfl-game-status${isFinal ? ' is-final' : ''}`}>{event.status}</span></div>
+    <div className="sport-event-footer"><span>{event.venue?.name || eventSeasonLabel(sportName, event)}</span><span className={`nfl-game-status${isFinal ? ' is-final' : ''}`}>{event.status}</span></div>
   </article>
 }
