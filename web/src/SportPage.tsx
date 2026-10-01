@@ -86,7 +86,8 @@ function SportPageContent({ sport, results, loadState }: { sport: (typeof sports
     return () => { cancelled = true }
   }, [sport.feed, sport.slug])
 
-  const sportResults = results.filter((result) => result.sport.trim().toLowerCase() === sport.name.toLowerCase())
+  const sportResultNames = sport.slug === 'american-football' ? new Set(['nfl', 'american football']) : new Set([sport.name.toLowerCase()])
+  const sportResults = results.filter((result) => sportResultNames.has(result.sport.trim().toLowerCase()))
   const wins = sportResults.filter((result) => result.status === 'win').length
   const losses = sportResults.filter((result) => result.status === 'loss').length
   const net = sportResults.reduce((sum, result) => sum + Number(result.net_units), 0)
