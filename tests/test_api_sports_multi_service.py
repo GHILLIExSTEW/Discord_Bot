@@ -56,6 +56,20 @@ def test_normalize_formula_one_race_without_teams(synced_at):
     assert result["status_code"] == "COMPLETED"
 
 
+def test_normalize_ncaa_nested_game(synced_at):
+    result = normalize_event("ncaa", {
+        "game": {"id": 400, "date": "2026-10-02T19:00:00+00:00", "venue": {"name": "Stadium"}, "week": 6, "status": {"short": "NS", "long": "Not Started"}},
+        "league": {"id": 2, "name": "NCAA", "season": 2026},
+        "teams": {"home": {"id": 40, "name": "Home College", "logo": "home.png"}, "away": {"id": 41, "name": "Away College", "logo": "away.png"}},
+        "scores": {"home": {"total": 0}, "away": {"total": 0}},
+    }, synced_at)
+
+    assert result["event_id"] == "400"
+    assert result["round_name"] == "6"
+    assert result["event_name"] == "Home College vs Away College"
+    assert result["status_code"] == "NS"
+
+
 class FakeQuery:
     def __init__(self, data=None):
         self.data = data or []
