@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import {
-  ArrowDown, ArrowRight, Check, Menu,
+  ArrowRight, Check, Menu,
   MessageCircle, X,
 } from 'lucide-react'
 import { BrowserRouter, Link, useLocation } from 'react-router-dom'
@@ -347,7 +347,7 @@ function Website() {
             <p className="hero-logo-tagline">Official plays. Every result stays on the board.</p>
           </div>
           <a className="hero-scroll-cue" href="#results" aria-label="Scroll to official results">
-            <span>Explore the official record</span><ArrowDown size={18} />
+            <span>Explore the official record</span>
           </a>
         </section>
 
