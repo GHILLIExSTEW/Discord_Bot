@@ -189,10 +189,10 @@ def test_unapproved_highroller_configuration_denies():
     database._ensure_client.assert_not_called()
 
 
-def test_five_guild_only_stats_commands_registered():
+def test_six_guild_only_stats_commands_registered():
     cog = MemberStats()
     commands = cog.get_app_commands()
-    assert {command.name for command in commands} == {"matchup", "teamstats", "schedule", "results", "playerstats"}
+    assert {command.name for command in commands} == {"matchup", "teamstats", "schedule", "results", "playerstats", "gamestats"}
     assert all(command.guild_only for command in commands)
 
 

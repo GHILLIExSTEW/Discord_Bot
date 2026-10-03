@@ -53,3 +53,15 @@ def test_all_provider_callers_consult_shared_budget():
         with patch(module + ".reserve_request", side_effect=ApiBudgetDenied("exhausted")), pytest.raises(ApiBudgetDenied):
             call()
     get.assert_not_called()
+
+
+def test_season_transport_rejects_paginated_response_instead_of_silent_partial_data():
+    from src.services.api_sports_multi_service import ApiSportsMultiService
+    get = Mock()
+    get.return_value.json.return_value = {
+        "errors": [], "paging": {"current": 1, "total": 2}, "response": [],
+    }
+    with patch("src.services.api_sports_multi_service.reserve_request"), pytest.raises(ValueError, match="additional provider pages"):
+        ApiSportsMultiService(api_key="test", get=get)._request(
+            "https://v3.football.api-sports.io", "players", {}, require_complete=True,
+        )

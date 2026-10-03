@@ -43,7 +43,25 @@ Use this document to onboard a new AI assistant to the product, repository, deci
 
 ### Proposed Memberships (Not Final Until Approved)
 
-Player-stat update: `/playerstats` reuses the same private guild-only
+Season-stat update supersedes the game-ID requirement: `/playerstats` now takes
+sport, league and player, with cached league/player autocomplete filtered by both
+scope fields. Current+previous seasons display together. Populated prior-season
+records are frozen for ordinary refresh; initial loads still cost requests.
+New migration `20261003070000_player_seasons.sql` seeds a private name directory
+from existing game caches and adds compact season totals, compact league metadata
+and an atomic batch reservation RPC. A cold lookup can reserve up to five calls;
+all reserved calls count against existing limits and the cooldown is applied once
+per batch. No provider calls while typing, no background backfill, no activation
+flag changes. `/gamestats` preserves optional per-game detail separately.
+NFL/NCAA/soccer use provider season totals, F1 driver standings, basketball
+explicitly incomplete additive totals from available selected-league game logs
+with per-stat denominators. Split seasons derive from cached league events.
+Pagination needing extra pages is rejected rather than treated as complete.
+Four season response samples were verified; SQL deployment/concurrency and live
+Discord command authorization remain unverified. Suggestions grow with cached
+players; do not claim a complete preloaded global player directory.
+
+Earlier player-stat update: `/gamestats` reuses the same private guild-only
 membership/owner/moderator gate and refresh flags. Migration
 `20261003060000_player_game_stats.sql` creates a service-role-only shared
 per-game JSON cache. NFL/NCAA, basketball, soccer and F1 session-result adapters

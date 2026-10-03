@@ -115,7 +115,9 @@ live paid production test. No direct API access or member-triggered live refresh
 is offered. Public cache data is not claimed exclusive. Confirm data-display
 licensing and deployment before advertising these tools as available.
 
-The later player-stat bundle adds private `/playerstats` game/session reports
+The later player-stat bundle adds private `/playerstats` current/previous-season
+reports with sport/league-filtered cached name suggestions, plus optional
+`/gamestats` game/session reports
 for NFL/NCAA, basketball, soccer and Formula 1, with cached paid ALL-STAR access
 and one-request limited HIGHROLLER/owner/moderator refresh. Apply the player-cache
 migration and verify live authorization before advertising availability. Provider
@@ -123,6 +125,10 @@ coverage is incomplete: baseball, hockey, rugby, handball and volleyball need a
 different individual-stat source; MMA schema verification is pending, and
 cricket/cycling have no configured feed. Do not market this as all-sports player
 coverage or as complete season history. No automatic player polling is enabled.
+Season lookup requires the season-cache/batch-budget migration. Previous-season
+data is cached after its first load; current refresh can reserve multiple calls
+under the same daily limits. Verify production SQL concurrency and command
+authorization before enabling it.
 
 Current tier roles:
 

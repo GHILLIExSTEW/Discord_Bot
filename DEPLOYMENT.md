@@ -1,18 +1,65 @@
 # Proxmox deployment guide
 
-## Player and driver statistics
+## Current and previous season player statistics
+
+The primary command is now `/playerstats sport league player refresh`.
+Choose sport first, select a suggested league, then type a player name.
+League suggestions are sport-scoped; player suggestions are scoped to both sport
+and league and use stable provider IDs behind the selected names.
+Autocomplete makes database reads only, never API calls while typing.
+Suggestions grow as players are cached; an empty directory does not imply no
+players exist. HIGHROLLER/owner/moderator refresh can discover a full typed name.
+Ordinary cached reports remain paid-only; trials cannot read or refresh stats.
+
+Apply `20261003070000_player_seasons.sql` after the existing budget and player-game
+cache migrations. It seeds leagues and name suggestions from existing caches,
+creates private compact season totals and shared league metadata, and adds the
+atomic batch reservation RPC. The primary command no longer requires a game ID.
+The old game-based report remains available separately as `/gamestats`.
+
+Both seasons are displayed. Current season comes from the selected league's
+cached event metadata, not blindly from the calendar year; split seasons such as
+`2026-2027` use `2025-2026` as the previous season. Populated previous-season
+records are retained and not refreshed by ordinary member requests. Missing
+previous seasons require a first download; empty/unavailable responses are
+retried after one day rather than frozen forever. Current snapshots reuse a
+five-minute freshness window. Missing values/coverage are explicitly disclosed.
+
+NFL/NCAA and soccer display provider season totals, preserving separate team
+stints. F1 displays driver season standings. Basketball aggregates only additive
+fields from available season game logs and filters them using selected-league
+season game IDs; per-stat reported-game counts prevent missing values being
+treated as zero. Shooting percentages/ratings are not summed. Incomplete provider
+coverage is not represented as complete season history. Paginated search results
+requiring more pages are rejected instead of silently saving a partial response.
+Full logs are not persisted; compact totals and compact shared league metadata
+are stored.
+
+A cold lookup reserves up to five requests before any network call (including
+identity discovery and league metadata as needed). Every reserved request counts
+toward the existing five-user/day and twenty-member/product/day limits; unused
+reservations after an error are not refunded. The shared product cooldown is
+applied once per batch, not between calls inside it. Existing one-call commands
+share the same atomic locks/counters. A normal refresh of a known player with
+previous-season data already cached costs one request, or two for basketball/
+American football when current league metadata also needs refreshing.
+The batch SQL transaction/concurrency behavior and production deployment must
+still be verified before enabling refresh. Existing activation/quota-reset gates
+remain in effect; no flags were changed and no background backfill was added.
+
+## Optional per-game player and driver statistics
 
 Apply `supabase/migrations/20261003060000_player_game_stats.sql` after the
 membership and API-budget migrations, then restart the bot to register
-`/playerstats sport game_id player refresh`.
+`/gamestats sport game_id player refresh`.
 Use a game ID from `/results` or `/schedule`; player accepts a name or provider ID.
 Omit player to list up to 20 available player/driver names and IDs. Searches
 still cover the whole cached response, not only the displayed roster.
 Reports show per-game provider groups, not calculated season totals. Supported
 adapters are NFL/NCAA football, basketball, soccer and Formula 1 session results.
-For F1, use `/results sport:formula-1` or `/schedule sport:formula-1` to get a
+For optional F1 game reports, use `/results sport:formula-1` or `/schedule sport:formula-1` to get a
 session ID; practice/qualifying results are explicitly distinguished from races.
-F1 schedule/results refresh is disabled; driver-result refresh is game-specific.
+F1 schedule/results refresh is disabled; `/gamestats` driver-result refresh is game-specific.
 
 Paid ALL-STAR reads shared cached snapshots. HIGHROLLER, the owner grant, and
 approved moderators can populate/refresh a game's snapshot when

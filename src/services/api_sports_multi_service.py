@@ -146,7 +146,7 @@ class ApiSportsMultiService:
     def _client(self):
         return self.client or supabase_service._ensure_client()
 
-    def _request(self, base_url: str, endpoint: str, params: dict) -> list[dict]:
+    def _request(self, base_url: str, endpoint: str, params: dict, *, require_complete: bool = False) -> list[dict]:
         if not self.api_key:
             raise RuntimeError("API_SPORTS_KEY is not configured.")
         reserve_request(base_url)
@@ -156,6 +156,11 @@ class ApiSportsMultiService:
         payload = response.json()
         if payload.get("errors"):
             raise RuntimeError(f"API-Sports {endpoint} failed: {payload['errors']}")
+        if require_complete:
+            paging = payload.get("paging")
+            if paging is not None:
+                if not isinstance(paging, dict) or type(paging.get("total")) is not int or paging["total"] not in {0, 1}:
+                    raise ValueError("This player search requires additional provider pages. Use a full name or a cached player suggestion; no partial season was saved.")
         rows = payload.get("response")
         if not isinstance(rows, list):
             raise RuntimeError(f"API-Sports {endpoint} returned an unexpected response.")

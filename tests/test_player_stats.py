@@ -181,7 +181,7 @@ def test_player_command_reuses_tier_gate(paid, highroller, refresh, expected_rea
         "src.member_stats.MEMBER_STATS_REFRESH_ENABLED", True,
     ):
         asyncio.run(MemberStats(membership, player_stats=cache).respond(
-            interaction(), "playerstats", "nfl", refresh=refresh, game_id=21561, player="609",
+            interaction(), "gamestats", "nfl", refresh=refresh, game_id=21561, player="609",
         ))
     assert cache.report.call_count == expected_reads
     assert cache.refresh.call_count == int(highroller and refresh)
