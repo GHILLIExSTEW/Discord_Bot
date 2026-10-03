@@ -8,6 +8,7 @@ import { getCapperAvatarUrl } from './capperAvatars'
 import { supabase } from './supabaseClient'
 import { sportsCatalog } from './sportsCatalog'
 import SportsDropdown from './SportsDropdown'
+import type { PolicyKind } from './PolicyPage'
 import './App.css'
 
 type ResultStatus = 'win' | 'loss' | 'void' | 'partial'
@@ -39,6 +40,7 @@ const MemberAccountPage = lazy(() => import('./MemberAccountPage'))
 const MemberPublicPage = lazy(() => import('./MemberPublicPage'))
 const MemberHomeFeed = lazy(() => import('./MemberHomeFeed'))
 const MembershipPage = lazy(() => import('./MembershipPage'))
+const PolicyPage = lazy(() => import('./PolicyPage'))
 const SportPage = lazy(() => import('./SportPage'))
 
 async function fetchPublicResults(): Promise<Result[]> {
@@ -162,6 +164,7 @@ function App() {
 function Website() {
   const location = useLocation()
   const routePath = location.pathname.replace(/\/+$/, '') || '/'
+  const policyKind: PolicyKind | null = routePath === '/terms' ? 'terms' : routePath === '/privacy' ? 'privacy' : routePath === '/refunds' ? 'refunds' : null
   const sportRouteSlug = routePath.startsWith('/sports/') ? routePath.slice('/sports/'.length) : null
   const [menuOpen, setMenuOpen] = useState(false)
   const [sport, setSport] = useState('All')
@@ -219,7 +222,9 @@ function Website() {
   const selectedCapper = cappers.find((capper) => capper.slug === profileSlug)
   const selectedCapperName = selectedCapper?.name
   useEffect(() => {
-    document.title = selectedCapperName
+    document.title = policyKind
+      ? `${policyKind === 'terms' ? 'Terms of Service' : policyKind === 'privacy' ? 'Privacy Notice' : 'Refund Policy'} | Playmaker Picks`
+      : selectedCapperName
       ? `${selectedCapperName} | Playmaker Picks`
       : routePath === '/results'
         ? 'Settled Results | Playmaker Picks'
@@ -236,7 +241,7 @@ function Website() {
         ? `${selectedCapperName}'s official settled-play record, performance graphs, and results.`
         : 'Verified sports analysis, transparent play tracking, and the Playmaker Picks community.',
     )
-  }, [routePath, selectedCapperName, sportRouteSlug])
+  }, [routePath, selectedCapperName, sportRouteSlug, policyKind])
   const capperResults = selectedCapper ? results.filter((result) => result.capper === selectedCapper.name) : []
   const capperAnalytics = buildCapperAnalytics(capperResults)
   const capperWins = capperResults.filter((result) => result.status === 'win').length
@@ -267,7 +272,11 @@ function Website() {
       </header>
 
       <main id="top">
-        {memberHandle ? (
+        {policyKind ? (
+          <Suspense fallback={<section className="membership-page"><p className="account-state">Loading policy...</p></section>}>
+            <PolicyPage kind={policyKind} />
+          </Suspense>
+        ) : memberHandle ? (
           <Suspense fallback={<section className="member-public-page"><p className="account-state">Loading public profile…</p></section>}>
             <MemberPublicPage handle={memberHandle} />
           </Suspense>
@@ -456,7 +465,7 @@ function Website() {
 
       <footer className="site-footer">
         <div className="footer-brand"><BrandLogo className="footer-logo" /><p><strong>Playmaker Picks</strong><small>Operated by Playmaker Sports Analytics, LLC.</small></p></div>
-        <div className="footer-links"><a href="#method">Methodology</a><a href="mailto:legal@playmakersportsanalytics.com">Legal</a><a href="mailto:support@playmakersportsanalytics.com">Support</a></div>
+        <div className="footer-links"><Link to="/#method">Methodology</Link><Link to="/terms">Terms</Link><Link to="/privacy">Privacy</Link><Link to="/refunds">Refunds</Link><a href="mailto:support@playmakersportsanalytics.com">Support</a></div>
         <p className="disclaimer">Sports analysis and opinions for informational and entertainment purposes only. We do not accept or place wagers. No outcome or profit is guaranteed. Must be 21+.</p>
         <p className="copyright">© 2026 Playmaker Sports Analytics, LLC.</p>
       </footer>

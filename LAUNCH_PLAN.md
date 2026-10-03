@@ -47,8 +47,8 @@ Discord access until every Gate B item is complete.
 ### Gate B: Technical Readiness
 
 - [ ] Production and staging environments use separate credentials.
-- [ ] Website authentication and Discord account linking are tested.
-- [ ] Signed webhooks are idempotent and reject invalid signatures.
+- [ ] Website authentication and Whop-managed Discord account linking are tested.
+- [ ] Whop API polling and verified paid identity succeed for a real production purchase.
 - [ ] Subscription state is stored independently from Discord roles.
 - [ ] Role assignment, expiration, refund, chargeback, cancellation, and manual
   override flows pass automated tests.
@@ -57,48 +57,59 @@ Discord access until every Gate B item is complete.
   payment credentials.
 - [ ] Database backups, alerting, and recovery procedures are tested.
 
+The current release uses five-minute Whop API polling, not webhooks. Signed
+webhooks and website billing/account linking remain follow-up work. Whop owns
+tier roles; the bot independently checks private payment evidence for vault
+submissions. Successful empty production sync has been observed, but a positive
+production paid-member test remains outstanding.
+
 ## 3. Initial Product
 
-Launch with two paid plans. Add Premium only after member research shows demand
-for features beyond access to ordinary plays.
+The owner selected these tiers, superseding earlier Starter/All Access pricing
+and auto-renewing trial proposals:
 
-| Plan | Proposed price | Access |
+| Plan | Base price (USD) | Duration |
 | --- | ---: | --- |
-| Free | $0 | Public verified record, weekly recap, announcements, and occasional promotional analysis |
-| Starter | $9.99/month | Typically 1-2 curated plays on active slates, standard alerts, and result tracking |
-| All Access | $19.99/month | Every official play from approved cappers, real-time alerts, full analysis, and complete records |
+| ROOKIE | $0 | Free seven-day trial; no automatic charge |
+| Gold / ALL-STAR | $9.99 | One-time 30-day paid pass |
+| Platinum / HIGHROLLER | $29.99 | One-time 30-day paid pass |
 
-Proposed trial: $5 for seven days of All Access, automatically converting to
-$19.99/month only after clear pre-purchase disclosure and affirmative consent.
-Limit trials to one per person, payment method, and Discord account where the
-provider supports those controls.
+| Offer label | Exact days | Discount | Gold total (USD) | Platinum total (USD) |
+| --- | ---: | ---: | ---: | ---: |
+| 1 month | 30 | 0% | 9.99 | 29.99 |
+| 3 months | 90 | 5% | 28.47 | 85.47 |
+| 6 months | 180 | 10% | 53.95 | 161.95 |
+| 12 months | 365 | 15% | 101.90 | 305.90 |
 
-Do not guarantee a daily play count. Product language should explain that
-no-play days can occur when no selection meets the published criteria.
+Paid passes expire without automatic renewal. Labels refer to fixed-day access,
+not calendar months. Discounts use multiples of the 30-day base price with one
+final rounding to cents. Exact benefits and channels for each tier must be
+confirmed before sale. No daily play count or profit is guaranteed. Trial-abuse
+prevention is not yet implemented or verified.
 
-Potential later plan:
-
-| Plan | Proposed price | Additional access |
-| --- | ---: | --- |
-| Premium | $34.99/month | All Access plus deeper analysis, data tools, premium discussions, scheduled Q&A, and priority support |
-
-Quarterly and annual discounts should be introduced only after monthly churn
-and support demand are understood. Do not offer weekly or lifetime plans at
-launch.
+Customer policy drafts are available at `/terms`, `/privacy`, and `/refunds`,
+linked from the footer and membership page. Owner decisions: minimum age 21
+(or higher local legal age); refund requests within seven days for access
+failures or duplicate charges, not losing picks alone; applicable legal and
+Whop remedies remain intact. Owner confirmed the support and legal inboxes are
+working and monitored. Policies remain drafts pending professional review.
+Finalize a data-retention schedule and deletion procedure before launch.
+Do not open production availability or remove draft notices until Gate A and
+the production access test pass.
 
 ## 4. Access and Discord Roles
 
-Proposed roles:
+Current tier roles:
 
 - `Visitor`: joined Discord but has no website entitlement.
 - `Free Member`: accepted server rules and linked an account.
-- `Starter`: active Starter entitlement.
-- `All Access`: active All Access entitlement.
-- `Premium`: reserved for the later Premium plan.
+- `ROOKIE`: seven-day free trial access.
+- `ALL-STAR`: Gold access.
+- `HIGHROLLER`: Platinum access.
 - `Founding Member`: time-limited complimentary entitlement for qualifying
   existing members.
 - `Promotional Access`: time-limited prize or administrative grant.
-- `Capper`: approved contributor; never inferred from a paid membership.
+- `PLAYMAKER`: approved capper; never inferred from a paid membership.
 - `Administrator`: operational access; never inferred from ownership of another
   role.
 
@@ -108,19 +119,19 @@ customer's paid subscription.
 
 ## 5. Member Journey
 
-1. A visitor lands on the website and can inspect pricing, transparent results,
-   policies, and the Discord community link.
-2. The visitor creates an account and links Discord through OAuth.
-3. The visitor purchases through the approved hosted checkout.
-4. The provider sends a signed webhook to the protected backend.
-5. The backend stores the provider event and updates the entitlement in one
-   idempotent transaction.
-6. The bot assigns `Paid - Unverified` or the plan-specific restricted role.
-7. Discord Membership Screening or the verification flow records rule
-   acceptance.
-8. The bot grants the plan role and removes temporary onboarding access.
-9. Cancellation preserves access through the paid-through date.
-10. Expiration, refund, or chargeback removes paid access and records why.
+1. A visitor inspects pricing, transparent results, policies, and the Discord
+   community link. Checkout remains closed until the launch gates pass.
+2. The visitor purchases a one-time pass through approved Whop hosted checkout,
+   connects their own Discord account, and uses Claim Access.
+3. Whop's Discord app assigns the configured tier role.
+4. The bot polls Whop every five minutes and records verified payment, period,
+   and Discord identity in a private audited ledger.
+5. `/membership_status` reports private vault eligibility. Verified paying
+   members may submit; trials and complimentary access do not qualify.
+6. Expiry or refund denies new vault submissions. Snapshots older than 15
+   minutes fail closed. Whop independently manages tier-role expiration.
+7. Already-confirmed vault tickets can settle after access expires. A new
+   purchase is required for renewed prepaid access.
 
 ## 6. Website Scope
 
@@ -164,7 +175,7 @@ Build the usable service first, not a marketing-only landing page.
 - Use responsive, accessible components and automated browser checks at desktop
   and mobile widths.
 
-### Trusted Backend
+### Future Webhook Backend (Not Implemented in the Polling Release)
 
 - Receive payment webhooks in an AWS Lambda, Supabase Edge Function, or another
   server-only endpoint supported by the selected provider.
@@ -175,10 +186,14 @@ Build the usable service first, not a marketing-only landing page.
   available to browser code.
 - Let the Proxmox bot consume entitlement state and perform Discord role work.
 
-### Proposed Membership Tables
+### Future Membership Table Proposal (Not the Current Whop Ledger)
 
 Add membership tables through a new migration rather than changing the meaning
 of `users.role`:
+
+The current implementation uses private `whop_memberships` and
+`whop_membership_audit` tables instead. The following is an earlier future
+architecture proposal, not deployed schema or a launch-completion claim.
 
 - `membership_plans`: internal plan key, provider price ID, rank, and active
   status.
