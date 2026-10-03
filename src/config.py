@@ -44,6 +44,14 @@ OPENAI_VISION_MODEL = get_str("OPENAI_VISION_MODEL", "gpt-5.4-mini")
 OPENAI_VISION_MODELS_RAW = get_str("OPENAI_VISION_MODELS", "")
 OFFICIAL_CHANNEL_ID = get_int("OFFICIAL_CHANNEL_ID")
 IMAGE_INPUT_CHANNEL_ID = get_int("IMAGE_INPUT_CHANNEL_ID")
+MEMBER_BET_CHANNEL_ID = get_int("MEMBER_BET_CHANNEL_ID")
+PAID_MEMBER_ROLE_ID = get_int("PAID_MEMBER_ROLE_ID")
+WHOP_API_KEY = get_str("WHOP_API_KEY")
+WHOP_ACCOUNT_ID = get_str("WHOP_ACCOUNT_ID")
+WHOP_PAID_PLAN_IDS = {
+    value.strip() for value in os.getenv("WHOP_PAID_PLAN_IDS", "").split(",") if value.strip()
+}
+WHOP_MEMBERSHIP_SYNC_ENABLED = get_bool("WHOP_MEMBERSHIP_SYNC_ENABLED", False)
 CONFIRMATION_CHANNEL_ID = get_int("CONFIRMATION_CHANNEL_ID")
 TEST_CHANNEL_ID = get_int("TEST_CHANNEL_ID")
 TESTING = get_bool("TESTING", False)
@@ -74,6 +82,3 @@ def parse_csv_values(name: str) -> list[str]:
 OPENAI_VISION_MODELS = [item.strip() for item in OPENAI_VISION_MODELS_RAW.split(",") if item.strip()]
 if not OPENAI_VISION_MODELS:
     OPENAI_VISION_MODELS = [OPENAI_VISION_MODEL]
-
-
-

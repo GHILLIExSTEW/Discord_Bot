@@ -9,7 +9,11 @@ from zoneinfo import ZoneInfo
 import discord
 from discord.ext import commands, tasks
 
-from src.config import API_SPORTS_KEY, APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, OPERATOR_ROLE_IDS, PARTIAL_REACTION, RESULT_CHANNEL_ID, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, TRACKER_START_DATE, VOID_REACTION, WIN_REACTION
+from src.config import API_SPORTS_KEY, APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, MEMBER_BET_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, OPERATOR_ROLE_IDS, PARTIAL_REACTION, RESULT_CHANNEL_ID, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, TRACKER_START_DATE, VOID_REACTION, WIN_REACTION
+from src.member_bet_vault import MemberBetVault
+from src.config import PAID_MEMBER_ROLE_ID, WHOP_MEMBERSHIP_SYNC_ENABLED
+from src.membership_access import MembershipRoleSync, WhopMembershipSync
+from src.services.membership_service import MembershipService
 from src.services.official_play_service import OfficialPlayService
 from src.services.supabase_service import supabase_service
 from src.services.team_ranking_service import TeamRankingService
@@ -36,6 +40,26 @@ intents.reactions = True
 
 class OfficialBot(commands.Bot):
     async def setup_hook(self) -> None:
+        if whop_membership_sync is not None:
+            await asyncio.to_thread(whop_membership_sync.service.ready)
+        if PAID_MEMBER_ROLE_ID:
+            if not WHOP_MEMBERSHIP_SYNC_ENABLED:
+                raise RuntimeError("Enable Whop membership sync before configuring paid-role synchronization.")
+            if not GUILD_ID:
+                raise RuntimeError("GUILD_ID is required for paid membership role synchronization.")
+            if PAID_MEMBER_ROLE_ID in OFFICIAL_ROLE_IDS | OPERATOR_ROLE_IDS:
+                raise RuntimeError("Use a dedicated paid-member role, not an official/operator role.")
+            await asyncio.to_thread(membership_role_sync.service.ready)
+        if member_bet_vault is not None:
+            other_channels = {
+                OFFICIAL_CHANNEL_ID, IMAGE_INPUT_CHANNEL_ID, CONFIRMATION_CHANNEL_ID,
+                TEST_CHANNEL_ID, RESULT_CHANNEL_ID, TEAM_STATS_CHANNEL_ID,
+            }
+            if MEMBER_BET_CHANNEL_ID in other_channels:
+                raise RuntimeError("MEMBER_BET_CHANNEL_ID must be a separate submission-only channel.")
+            await asyncio.to_thread(member_bet_vault.service.ready)
+            await asyncio.to_thread(member_bet_vault.membership.ready)
+            self.add_view(member_bet_vault.view)
         if GUILD_ID:
             guild = discord.Object(id=GUILD_ID)
             self.tree.copy_global_to(guild=guild)
@@ -47,6 +71,9 @@ class OfficialBot(commands.Bot):
 
 
 bot = OfficialBot(command_prefix="!", intents=intents, application_id=APPLICATION_ID)
+member_bet_vault = MemberBetVault(bot, MEMBER_BET_CHANNEL_ID) if MEMBER_BET_CHANNEL_ID else None
+membership_role_sync = MembershipRoleSync(bot, GUILD_ID, PAID_MEMBER_ROLE_ID) if GUILD_ID and PAID_MEMBER_ROLE_ID else None
+whop_membership_sync = WhopMembershipSync(bot, membership_role_sync) if WHOP_MEMBERSHIP_SYNC_ENABLED else None
 official_play_service = OfficialPlayService()
 team_ranking_service = TeamRankingService()
 play_service = PlayService()
@@ -503,6 +530,10 @@ async def on_ready():
     global nfl_initial_sync_started
     global multi_sport_initial_sync_started
     print(f"Logged in as {bot.user}")
+    if whop_membership_sync is not None and not whop_membership_sync.reconcile.is_running():
+        whop_membership_sync.reconcile.start()
+    if member_bet_vault is not None and not member_bet_vault.reconcile.is_running():
+        member_bet_vault.reconcile.start()
     if not hourly_tracker_update.is_running():
         hourly_tracker_update.start()
     if API_SPORTS_KEY:
@@ -557,6 +588,9 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
 @bot.event
 async def on_message(message: discord.Message):
     if message.author.bot or not message.guild:
+        return
+    if member_bet_vault is not None and message.channel.id == MEMBER_BET_CHANNEL_ID:
+        await member_bet_vault.handle_message(message)
         return
 
     is_test_channel = testing_enabled and TEST_CHANNEL_ID and message.channel.id == TEST_CHANNEL_ID
@@ -1135,6 +1169,27 @@ async def play_command(interaction: discord.Interaction):
 
     logger.info("play_modal_open_start interaction=%s", interaction.id)
     await interaction.response.send_modal(PlayModal())
+
+
+@bot.tree.command(name="membership_status", description="Privately check paid Member Vault eligibility")
+async def membership_status_command(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+    if not WHOP_MEMBERSHIP_SYNC_ENABLED:
+        await interaction.followup.send("Whop membership verification is not enabled yet. Checkout remains closed.", ephemeral=True)
+        return
+    try:
+        eligible = await asyncio.to_thread(MembershipService().has_paid_access, interaction.user.id)
+        await interaction.followup.send(
+            "Your current paid membership is verified. You can submit Member Vault tickets."
+            if eligible else
+            "No current verified paid membership was found for this Discord account. "
+            "Connect this account in Whop and allow up to five minutes for synchronization. "
+            "Free/trial access does not qualify. Contact support if you have paid.",
+            ephemeral=True,
+        )
+    except Exception:
+        logger.exception("membership_status_failed user=%s", interaction.user.id)
+        await interaction.followup.send("Membership verification is temporarily unavailable. Please retry later.", ephemeral=True)
 
 
 @bot.tree.command(name="test", description="Test an image or run play-system diagnostics")

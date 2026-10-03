@@ -27,6 +27,12 @@ Use this document to onboard a new AI assistant to the product, repository, deci
 
 ### Confirmed Product Direction
 
+- Owner selected Whop for subscription/payment integration. The bot keeps a
+  private Whop-verified paid-access ledger and gates new Member Vault submissions
+  independently of Discord roles. Initial integration polls the API; checkout
+  remains closed pending approval/configuration and live validation. See
+  `DEPLOYMENT.md` for the migration, settings, eligibility rules, and limitations.
+
 - Public experience should combine a **bold, energetic public face** with a **calm, restrained private clubhouse**.
 - Show the full verified historical record publicly. Trust through evidence is a core acquisition strategy.
 - Public capper treatment: brief, strong summaries. Inside the clubhouse: full profiles and records.
@@ -36,6 +42,33 @@ Use this document to onboard a new AI assistant to the product, repository, deci
 - First-time visitors care about three actions: verified results, free Discord/community access, and membership plans. Evidence should lead visually while the other actions remain easy to find.
 
 ### Proposed Memberships (Not Final Until Approved)
+
+Owner confirmed and authorized creation of these Whop tiers on October 2, 2026:
+
+Later that evening, the owner replaced recurring billing with one-time prepaid
+Gold/Platinum passes: 30/90/180/365 days, with 0%/5%/10%/15% discounts.
+Gold upfront prices: $9.99/$28.47/$53.95/$101.90.
+Platinum upfront prices: $29.99/$85.47/$161.95/$305.90.
+All eight plans are created, verified hidden/zero-stock, and saved in the paid
+allowlist; the original recurring plans remain hidden but are excluded.
+The free seven-day trial stays unchanged. See `DEPLOYMENT.md` for current IDs
+and the additional prepaid-access migration. Nothing auto-renews or opens
+checkout, and sync is still disabled.
+
+- Free Trial: $0, seven days, expires without an automatic charge.
+  Product `prod_XR7ObV8EF8hSM`; plan `plan_i9kjEGeSzcuOV`.
+- Gold (Level 1): $9.99 per 30-day billing period.
+  Product `prod_0Bi4ERPCfSWz1`; plan `plan_rAvIzb0XD2Jdz`.
+- Platinum (Level 2): $29.99 per 30-day billing period.
+  Product `prod_6Hh9VAzQnzNiE`; plan `plan_pvonMenMO9YDa`.
+
+All three products/plans were created through the API and read back to verify
+prices, seller, product associations, expiration, and availability. They are
+hidden with zero stock and unlimited stock disabled; checkout remains closed.
+Only Gold and Platinum are allowlisted for Member Vault paid access. Membership
+sync remains disabled pending database deployment and live eligibility testing.
+These confirmed names/prices supersede the older Starter/All Access proposals
+below; website pricing and launch materials still require alignment before launch.
 
 `LAUNCH_PLAN.md` currently proposes:
 
