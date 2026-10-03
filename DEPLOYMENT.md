@@ -194,11 +194,12 @@ retention policy; there is no automatic retention cleanup in this release.
 ### Prepaid offers (current)
 
 The owner replaced automatic renewal with one-time prepaid terms. All eight
-offers were created under the existing Gold/Platinum products and read back to
+offers were created under the existing ALL-STAR/HIGHROLLER products (formerly
+Gold/Platinum) and read back to
 verify the seller, product, upfront price, expiration, hidden visibility, zero
 stock, and disabled unlimited stock. No automatic renewal applies.
 
-| Term | Exact access | Discount | Gold upfront USD | Gold plan | Platinum upfront USD | Platinum plan |
+| Term | Exact access | Discount | ALL-STAR upfront USD | ALL-STAR plan | HIGHROLLER upfront USD | HIGHROLLER plan |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 month | 30 days | 0% | 9.99 | `plan_pkIXO8mx8lOvb` | 29.99 | `plan_10PuOcOt9rHNL` |
 | 3 months | 90 days | 5% | 28.47 | `plan_HIqBGKDODgWRI` | 85.47 | `plan_8nWXoogPnIovE` |
@@ -209,7 +210,25 @@ Discounts apply to base price times the term length, rounded once to cents.
 These are fixed-day passes, not calendar-month expiration. Only these eight
 plan IDs belong in the current paid allowlist. The earlier recurring plans
 below remain hidden/zero-stock and are no longer allowlisted; do not publish
-them. The free seven-day trial remains unchanged.
+them.
+
+On October 3 the owner consolidated to two tier roles. ALL-STAR product
+`prod_0Bi4ERPCfSWz1` now has a free seven-day one-time trial
+`plan_ejj9LwTfrJp5z` alongside the four paid passes. The trial has no automatic
+charge or conversion and never belongs in `WHOP_PAID_PLAN_IDS`. HIGHROLLER
+product `prod_6Hh9VAzQnzNiE` remains paid-only. ALL-STAR trial members receive
+the same tier role but cannot submit vault tickets; payment verification, not
+the role, enforces that restriction. Retire the old ROOKIE Discord configuration
+without deleting shared access or changing existing tier mappings. Verify the
+ALL-STAR role ID configuration and trial-to-paid overlap before launch.
+Product-filtered API listings verified ALL-STAR is attached to Discord
+experience `exp_CJFzS7gTGLLsj2` and HIGHROLLER to
+`exp_xiSK1tNQP20bvc`; both experiences are private. The experience detail
+response's `products` array was empty even for mapped apps, so use the
+product-filtered listing to verify attachments. The legacy ROOKIE app was
+renamed `Retired ROOKIE` and kept private; its Discord role was not deleted.
+The original separate trial and recurring variants are hidden, zero-stock,
+with unlimited stock disabled. Nothing was published by this consolidation.
 
 Apply `supabase/migrations/20261003020000_whop_prepaid_access.sql` after the
 membership migration. It permits a verified paid snapshot with Whop's
@@ -218,7 +237,10 @@ status the bot also verifies that the matching seller's plan is `one_time` and
 has a positive expiration duration. Missing period dates, payment evidence, or
 verified identity still deny access; no lifetime access is inferred. Test
 actual prepaid membership dates/status and Whop role expiration before launch.
-Sync and checkout remain disabled.
+Production polling was enabled on the server and successfully returned zero
+memberships. Local sync remains disabled. Checkout remains closed; successful
+paid production eligibility, expiry, refund, and trial-to-paid overlap are
+still unverified.
 
 ### Original draft offers (superseded for paid access)
 

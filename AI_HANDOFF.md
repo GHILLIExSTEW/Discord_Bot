@@ -43,6 +43,22 @@ Use this document to onboard a new AI assistant to the product, repository, deci
 
 ### Proposed Memberships (Not Final Until Approved)
 
+Current October 3 decision: only ALL-STAR and HIGHROLLER membership roles.
+ALL-STAR product `prod_0Bi4ERPCfSWz1` contains the free seven-day one-time trial
+`plan_ejj9LwTfrJp5z` and four existing paid passes. Trial expires without a
+charge and is excluded from the eight-plan paid allowlist. HIGHROLLER product
+`prod_6Hh9VAzQnzNiE` is paid-only. Product and paid variant titles were renamed;
+the old separate ROOKIE product/plan and old recurring plans remain retired,
+hidden, zero-stock, unlimited-stock disabled. Website and policy copies use
+the two current names. Verify Whop's ALL-STAR role configuration and
+trial-to-paid overlap; no automatic deletion of the Discord ROOKIE role was
+performed. Private Discord experiences for both current products were verified
+using product-filtered API listings; the detail `products` array is unreliable
+for attachment verification. Legacy ROOKIE experience is renamed and private.
+Role IDs inside the Discord app and trial expiration are still unverified.
+Production polling is running (empty successful sync); local polling
+is off and checkout is closed. Earlier details below are historical.
+
 Owner confirmed and authorized creation of these Whop tiers on October 2, 2026:
 
 Later that evening, the owner replaced recurring billing with one-time prepaid

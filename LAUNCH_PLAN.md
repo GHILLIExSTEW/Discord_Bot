@@ -70,11 +70,11 @@ and auto-renewing trial proposals:
 
 | Plan | Base price (USD) | Duration |
 | --- | ---: | --- |
-| ROOKIE | $0 | Free seven-day trial; no automatic charge |
-| Gold / ALL-STAR | $9.99 | One-time 30-day paid pass |
-| Platinum / HIGHROLLER | $29.99 | One-time 30-day paid pass |
+| ALL-STAR trial option | $0 | Free seven-day ALL-STAR access; no automatic charge; no vault submissions |
+| ALL-STAR | $9.99 | One-time 30-day paid pass |
+| HIGHROLLER | $29.99 | One-time 30-day paid pass; no trial |
 
-| Offer label | Exact days | Discount | Gold total (USD) | Platinum total (USD) |
+| Offer label | Exact days | Discount | ALL-STAR total (USD) | HIGHROLLER total (USD) |
 | --- | ---: | ---: | ---: | ---: |
 | 1 month | 30 | 0% | 9.99 | 29.99 |
 | 3 months | 90 | 5% | 28.47 | 85.47 |
@@ -103,9 +103,16 @@ Current tier roles:
 
 - `Visitor`: joined Discord but has no website entitlement.
 - `Free Member`: accepted server rules and linked an account.
-- `ROOKIE`: seven-day free trial access.
-- `ALL-STAR`: Gold access.
-- `HIGHROLLER`: Platinum access.
+- `ALL-STAR`: seven-day trial or current paid ALL-STAR access.
+- `HIGHROLLER`: current paid HIGHROLLER access; no free trial.
+- `ROOKIE`: retired from membership setup; do not grant it for new trials.
+
+The trial and paid ALL-STAR offers share product `prod_0Bi4ERPCfSWz1`.
+Trial variant `plan_ejj9LwTfrJp5z` is free, one-time, expires after seven days,
+and is excluded from the paid vault allowlist. The old separate trial offer
+remains hidden/zero-stock. Whop's existing ALL-STAR product-to-role mapping must
+be verified for the new trial; do not create a second role owner. Trial-to-paid
+overlap and expiration need live verification.
 - `Founding Member`: time-limited complimentary entitlement for qualifying
   existing members.
 - `Promotional Access`: time-limited prize or administrative grant.

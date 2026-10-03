@@ -2,9 +2,8 @@ import { ArrowRight, Check } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 const plans = [
-  { name: 'ROOKIE', price: '$0', summary: 'Free seven-day trial. Expires without an automatic charge.', featured: false },
-  { name: 'Gold / ALL-STAR', price: '$9.99', summary: 'Gold-tier Discord access. Review included channels and benefits before purchasing.', featured: false },
-  { name: 'Platinum / HIGHROLLER', price: '$29.99', summary: 'Platinum-tier Discord access. Review included channels and benefits before purchasing.', featured: true },
+  { name: 'ALL-STAR', price: '$9.99', summary: 'ALL-STAR Discord access, with an optional free seven-day trial. The trial expires without a charge and does not include Member Vault submissions.', featured: false },
+  { name: 'HIGHROLLER', price: '$29.99', summary: 'HIGHROLLER Discord access. Paid-only; no free trial. Review included channels and benefits before purchasing.', featured: true },
 ]
 
 const prepaidOffers = [
@@ -15,11 +14,12 @@ const prepaidOffers = [
 ]
 
 const features = [
-  { name: 'Public settled-play record', values: ['Included', 'Included', 'Included'] },
-  { name: 'Personalized sports & capper follows', values: ['Included', 'Included', 'Included'] },
-  { name: 'Weekly recap', values: ['Included', 'Included', 'Included'] },
-  { name: 'Tier Discord access', values: ['7-day trial', 'Gold channels', 'Platinum channels'] },
-  { name: 'Member Bet Vault submissions', values: ['Not eligible', 'Verified paid access required', 'Verified paid access required'] },
+  { name: 'Public settled-play record', values: ['Included', 'Included'] },
+  { name: 'Personalized sports & capper follows', values: ['Included', 'Included'] },
+  { name: 'Weekly recap', values: ['Included', 'Included'] },
+  { name: 'Tier Discord access', values: ['ALL-STAR channels', 'HIGHROLLER channels'] },
+  { name: 'Free trial', values: ['7 days; no automatic charge', 'Not offered'] },
+  { name: 'Member Bet Vault submissions', values: ['Verified paid access only; no trial submissions', 'Verified paid access required'] },
 ]
 
 export default function MembershipPage() {
@@ -34,7 +34,7 @@ export default function MembershipPage() {
       {plans.map((plan) => <article className={`membership-plan${plan.featured ? ' is-featured' : ''}`} key={plan.name}>
         <p className="eyebrow">{plan.featured ? 'Full card' : 'Playmaker Picks'}</p>
         <h2>{plan.name}</h2>
-        <p className="membership-price">{plan.price}<span>{plan.price === '$0' ? ' / 7 days' : ' / 30 days prepaid'}</span></p>
+        <p className="membership-price">{plan.price}<span> / 30 days prepaid</span></p>
         <p>{plan.summary}</p>
         <a className="button membership-interest" href={`mailto:support@playmakersportsanalytics.com?subject=${encodeURIComponent(`Playmaker ${plan.name} membership interest`)}`}>Get launch updates <ArrowRight size={16} /></a>
       </article>)}
@@ -42,7 +42,7 @@ export default function MembershipPage() {
     <section className="membership-breakdown" aria-label="Prepaid prices">
       <div className="profile-section-heading"><p className="eyebrow">Pay upfront</p><h2>Choose your access duration.</h2></div>
       <div className="membership-table-wrap"><table className="membership-table">
-        <thead><tr><th scope="col">Offer</th><th scope="col">Exact duration</th><th scope="col">Discount</th><th scope="col">Gold total (USD)</th><th scope="col">Platinum total (USD)</th></tr></thead>
+        <thead><tr><th scope="col">Offer</th><th scope="col">Exact duration</th><th scope="col">Discount</th><th scope="col">ALL-STAR total (USD)</th><th scope="col">HIGHROLLER total (USD)</th></tr></thead>
         <tbody>{prepaidOffers.map((offer) => <tr key={offer.days}><th scope="row">{offer.term}</th><td>{offer.days} days</td><td>{offer.discount}</td><td>{offer.gold}</td><td>{offer.platinum}</td></tr>)}</tbody>
       </table></div>
       <p className="membership-disclaimer">One-time payments, no automatic renewal. Month labels mean the exact days shown, not calendar months. Discounts are against 3, 6, or 12 purchases at the 30-day base price, rounded once to cents. Any taxes or checkout fees must be disclosed before payment.</p>
