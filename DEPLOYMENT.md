@@ -260,6 +260,9 @@ API contract: `https://api.whop.com/api/v1`, pinned with
 `cancel_at_period_end` fields. User identities come from `social_accounts`
 entries with platform `discord`, a numeric `external_id`, and `verified=true`;
 missing, unverified, or multiple distinct Discord identities do not qualify.
+API/database timestamp readers normalize fractional seconds before parsing,
+including PostgreSQL timestamps with trimmed trailing zeros, for Python 3.10
+deployment compatibility.
 Members must connect their own Discord account inside Whop. No typed username,
 email match, client metadata, or Discord role is accepted as identity/payment
 proof. Verify the actual account's API responses before launch.

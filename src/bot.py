@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 import discord
 from discord.ext import commands, tasks
+from src.datetime_utils import parse_iso_datetime
 
 from src.config import API_SPORTS_KEY, APPLICATION_ID, CONFIRMATION_CHANNEL_ID, DISCORD_TOKEN, GUILD_ID, IMAGE_INPUT_CHANNEL_ID, MEMBER_BET_CHANNEL_ID, LOSS_REACTION, OFFICIAL_CHANNEL_ID, OFFICIAL_ROLE_IDS, OPERATOR_ROLE_IDS, PARTIAL_REACTION, RESULT_CHANNEL_ID, TEAM_STATS_CHANNEL_ID, TEST_CHANNEL_ID, TESTING, TRACKER_START_DATE, VOID_REACTION, WIN_REACTION
 from src.member_bet_vault import MemberBetVault
@@ -247,9 +248,7 @@ async def reconcile_open_play_reactions(plays: list[dict], users: list[dict], ch
 
 
 def parse_tracker_time(value: str, timezone_name: str) -> datetime:
-    text = str(value).replace("Z", "+00:00")
-    text = re.sub(r"\.(\d{1,6})\d*(?=[+-]\d{2}:\d{2}$)", lambda match: "." + match.group(1).ljust(6, "0"), text)
-    parsed = datetime.fromisoformat(text)
+    parsed = parse_iso_datetime(str(value))
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(ZoneInfo(timezone_name))

@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from PIL import Image, UnidentifiedImageError
 
+from src.datetime_utils import parse_iso_datetime
 from src.services.api_sports_service import ApiSportsService, normalize_game
 from src.services.api_sports_multi_service import ApiSportsMultiService, DATE_PRODUCTS, normalize_event
 from src.services.image_play_service import ImagePlayService
@@ -282,7 +283,7 @@ class MemberBetService:
             and (leg.get("market") == "moneyline" or leg.get("line") is not None)
         )
         now = datetime.now(timezone.utc)
-        next_check = max(now, datetime.fromisoformat(event["start_at"])) if supported else now
+        next_check = max(now, parse_iso_datetime(event["start_at"])) if supported else now
         updated = self.update(bet_id, {
             "units": units, "odds": odds, "event": event,
             "status": "open" if supported else "review",
@@ -333,7 +334,7 @@ class MemberBetService:
             return
         status = str(event.get("status_code", "")).upper()
         now = datetime.now(timezone.utc)
-        overdue = now - datetime.fromisoformat(expected["start_at"]) > timedelta(hours=24)
+        overdue = now - parse_iso_datetime(expected["start_at"]) > timedelta(hours=24)
         if status in {"FT", "AOT", "CANC", "ABD", "WO", "PST", "POST", "SUSP"} or overdue:
             self.update(row["id"], {
                 "status": "review", "review_reason": "Event requires moderator review; no safe automatic result.",

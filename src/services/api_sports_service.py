@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 from src.config import API_SPORTS_BASE_URL, API_SPORTS_KEY
+from src.datetime_utils import parse_iso_datetime
 from src.services.supabase_service import supabase_service
 
 NFL_LEAGUE_ID = 1
@@ -153,7 +154,7 @@ class ApiSportsService:
         )
         if not rows or not rows[0].get("success") or not rows[0].get("last_success_at"):
             return False
-        last_success = datetime.fromisoformat(rows[0]["last_success_at"].replace("Z", "+00:00"))
+        last_success = parse_iso_datetime(rows[0]["last_success_at"])
         return last_success.astimezone(TRACKER_TIMEZONE).date() == self.clock().astimezone(TRACKER_TIMEZONE).date()
 
     def sync_daily(self, force: bool = False) -> dict:

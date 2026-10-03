@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 from src.config import API_SPORTS_KEY
+from src.datetime_utils import parse_iso_datetime
 from src.services.supabase_service import supabase_service
 
 TRACKER_TIMEZONE = ZoneInfo("America/New_York")
@@ -43,8 +44,7 @@ def _timestamp(value: Any, fallback: datetime) -> str:
             return datetime.fromtimestamp(int(value["timestamp"]), timezone.utc).isoformat()
         value = value.get("date")
     if value:
-        text = str(value).replace("Z", "+00:00")
-        parsed = datetime.fromisoformat(text)
+        parsed = parse_iso_datetime(str(value))
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=timezone.utc)
         return parsed.astimezone(timezone.utc).isoformat()
@@ -163,7 +163,7 @@ class ApiSportsMultiService:
         rows = self._client().table("api_sports_sync_state").select("success,last_success_at").eq("sync_key", f"events:{sport_slug}").limit(1).execute().data or []
         if not rows or not rows[0].get("success") or not rows[0].get("last_success_at"):
             return False
-        last = datetime.fromisoformat(rows[0]["last_success_at"].replace("Z", "+00:00"))
+        last = parse_iso_datetime(rows[0]["last_success_at"])
         return last.astimezone(TRACKER_TIMEZONE).date() == today
 
     def _record(self, sync_key: str, started: datetime, success: bool, requests_used: int, error: str | None = None) -> None:

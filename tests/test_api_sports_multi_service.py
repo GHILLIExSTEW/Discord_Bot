@@ -104,6 +104,15 @@ class FakeSupabase:
         return FakeQuery()
 
 
+def test_daily_complete_accepts_trimmed_postgres_fraction():
+    client = SimpleNamespace(table=lambda _name: FakeQuery([
+        {"success": True, "last_success_at": "2026-10-02T10:25:23.42324+00:00"},
+    ]))
+    service = ApiSportsMultiService(client=client)
+    assert service._daily_complete("mma", datetime(2026, 10, 2).date())
+    assert not service._daily_complete("mma", datetime(2026, 10, 3).date())
+
+
 class FakeApiResponse:
     def raise_for_status(self):
         return None

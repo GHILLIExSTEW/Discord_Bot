@@ -7,6 +7,7 @@ import re
 import requests
 
 from src.config import WHOP_API_KEY, WHOP_ACCOUNT_ID, WHOP_PAID_PLAN_IDS
+from src.datetime_utils import parse_iso_datetime
 from src.services.supabase_service import supabase_service
 
 API_URL = "https://api.whop.com/api/v1"
@@ -16,7 +17,7 @@ API_VERSION = "2026-09-29"
 def timestamp(value) -> datetime:
     if not isinstance(value, str):
         raise ValueError("Whop did not supply an ISO timestamp.")
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    parsed = parse_iso_datetime(value)
     if parsed.tzinfo is None:
         raise ValueError("Whop timestamp has no timezone.")
     return parsed.astimezone(timezone.utc)

@@ -9,6 +9,7 @@ import discord
 from discord.ext import tasks
 
 from src.config import OPERATOR_ROLE_IDS
+from src.datetime_utils import parse_iso_datetime
 from src.services.member_bet_service import (
     MemberBetService, SETTLED, accepted_photo, sanitize_photo, validate_ticket,
 )
@@ -65,7 +66,7 @@ def card_embed(row: dict) -> discord.Embed:
                 inline=False,
             )
     embed.set_footer(text=f"Member Vault ticket {row['id']} | Units are personal, not dollar amounts.")
-    embed.timestamp = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00"))
+    embed.timestamp = parse_iso_datetime(row["created_at"])
     return embed
 
 
