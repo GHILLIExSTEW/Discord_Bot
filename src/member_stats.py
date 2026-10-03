@@ -26,7 +26,7 @@ class MemberStats(commands.Cog):
         try:
             allowed = await asyncio.to_thread(self.membership.has_highroller_access, interaction.user.id)
             if not allowed:
-                await interaction.followup.send("These tools require current verified paid HIGHROLLER access. ALL-STAR and trials do not qualify; Discord roles alone do not grant access.", ephemeral=True)
+                await interaction.followup.send("These tools require current verified paid HIGHROLLER access or an explicit HIGHROLLER owner grant. ALL-STAR and trials do not qualify; Discord roles alone do not grant access.", ephemeral=True)
                 return
             title, description = await asyncio.to_thread(self.stats.report, mode, sport, team, opponent)
             if len(description) > 4096:

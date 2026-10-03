@@ -5,7 +5,7 @@ from src.config import WHOP_ACCOUNT_ID, WHOP_PAID_PLAN_IDS, WHOP_HIGHROLLER_PLAN
 
 
 class MembershipService:
-    """Read paid access from the private ledger; Discord roles are not payment evidence."""
+    """Read paid or explicit owner-granted access; roles are not payment evidence."""
 
     def __init__(self, database=None) -> None:
         self.db = database or supabase_service

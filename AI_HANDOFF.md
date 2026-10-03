@@ -56,6 +56,14 @@ season standings; schedules cover seven days. ALL-STAR/trials are excluded.
 reads passed. Positive live HIGHROLLER authorization is not verified.
 API-Sports display licensing remains a launch gate.
 
+Owner explicitly authorized lifetime HIGHROLLER stats and vault access for
+Discord ID `761388542965448767`. Migration
+`20261003040000_owner_highroller_access.sql` grants separate private,
+audited owner access with null expiry, not a Whop payment. Existing access RPCs
+include the grant; ordinary free/trial accounts remain denied. Grant deployment
+and positive authorization must be verified after the user runs the migration.
+Discord HIGHROLLER role assignment remains separate; no admin permissions.
+
 Current October 3 decision: only ALL-STAR and HIGHROLLER membership roles.
 ALL-STAR product `prod_0Bi4ERPCfSWz1` contains the free seven-day one-time trial
 `plan_ejj9LwTfrJp5z` and four existing paid passes. Trial expires without a

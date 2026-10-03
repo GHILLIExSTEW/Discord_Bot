@@ -1181,9 +1181,9 @@ async def membership_status_command(interaction: discord.Interaction):
     try:
         eligible = await asyncio.to_thread(MembershipService().has_paid_access, interaction.user.id)
         await interaction.followup.send(
-            "Your current paid membership is verified. You can submit Member Vault tickets."
+            "Your Member Vault access is verified through a current paid membership or an explicit owner grant. You can submit tickets."
             if eligible else
-            "No current verified paid membership was found for this Discord account. "
+            "No current verified paid membership or owner grant was found for this Discord account. "
             "Connect this account in Whop and allow up to five minutes for synchronization. "
             "Free/trial access does not qualify. Contact support if you have paid.",
             ephemeral=True,

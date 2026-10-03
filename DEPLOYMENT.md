@@ -193,6 +193,28 @@ retention policy; there is no automatic retention cleanup in this release.
 
 ### HIGHROLLER cached stats tools
 
+#### Lifetime owner exception
+
+After the stats-access migration, apply
+`supabase/migrations/20261003040000_owner_highroller_access.sql`. It creates
+private owner grants and insert/update/delete audit snapshots, then grants
+Discord ID `761388542965448767` lifetime HIGHROLLER tools and vault access
+for seller `biz_rCNwfXRlnl0bFU`. Null expiration means lifetime, not a fabricated
+payment or a distant expiry date. The grant does not expire when Whop polling
+finds no paid membership. Existing RPC names are preserved for callers, but
+now return authorized access (paid or owner grant), not proof of payment.
+Ordinary free/complimentary Whop memberships still do not qualify.
+
+This does not assign a Discord role or bypass channel permissions. Manually
+assign the existing HIGHROLLER role to the owner for channel access; no
+moderation/admin permissions are granted. Keep sync enabled for stats tools.
+Whop must not be relied on to preserve a manually assigned owner role:
+verify its behavior and restore channel access if its integration removes it.
+Revoke the entitlement with an audited update of `revoked_at = now()` in
+`owner_membership_grants`; remove the channel role separately.
+Never write fake payment snapshots. Professional policy review should account
+for this narrow owner exception.
+
 Apply `supabase/migrations/20261003030000_highroller_stats_access.sql` after
 the prepaid migration, then deploy/restart the bot. This adds a service-role-only
 seller/plan-scoped lookup; missing schema fails closed without preventing the
