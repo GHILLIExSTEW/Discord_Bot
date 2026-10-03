@@ -91,6 +91,20 @@ def test_nfl_cache_normalization():
     service.db._ensure_client.return_value.table.assert_called_with("api_sports_nfl_games")
 
 
+def test_f1_session_discovery_uses_name_type_and_id_not_team_scores():
+    service, _ = stats([event(
+        home_name=None, away_name=None, event_name="Bahrain Grand Prix",
+        raw_event={"type": "2nd Practice"}, status_code="COMPLETED",
+    )])
+    report = service.report("results", "formula-1")[1]
+    assert "Bahrain Grand Prix" in report and "2nd Practice" in report and "Session ID: 1" in report
+    assert "None vs None" not in report
+    with pytest.raises(ValueError, match="not team-form"):
+        service.report("teamstats", "formula-1", "Ferrari")
+    with pytest.raises(ValueError, match="cached only"):
+        service.refresh("formula-1", 123)
+
+
 def test_unfinished_and_missing_scores_not_counted_as_wins():
     service, _ = stats([event(home_score=None), event(event_id="2", status_code="NS")])
     _, report = service.report("teamstats", "basketball", "Home")
@@ -175,10 +189,10 @@ def test_unapproved_highroller_configuration_denies():
     database._ensure_client.assert_not_called()
 
 
-def test_four_guild_only_stats_commands_registered():
+def test_five_guild_only_stats_commands_registered():
     cog = MemberStats()
     commands = cog.get_app_commands()
-    assert {command.name for command in commands} == {"matchup", "teamstats", "schedule", "results"}
+    assert {command.name for command in commands} == {"matchup", "teamstats", "schedule", "results", "playerstats"}
     assert all(command.guild_only for command in commands)
 
 

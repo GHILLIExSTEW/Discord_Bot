@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 
 const plans = [
   { name: 'ALL-STAR', price: '$9.99', summary: 'ALL-STAR Discord access, with an optional free seven-day trial. The trial expires without a charge and does not include Member Vault submissions.', featured: false },
-  { name: 'HIGHROLLER', price: '$29.99', summary: 'HIGHROLLER Discord access plus cached stats and limited on-demand refresh of today’s event data. Shared quotas apply; not a real-time guarantee. Refresh awaits deployment and activation. No trial.', featured: true },
+  { name: 'HIGHROLLER', price: '$29.99', summary: 'HIGHROLLER Discord access plus cached stats and limited on-demand refresh of today’s events and supported player/driver game reports. Shared quotas apply; not a real-time guarantee. Refresh awaits deployment and activation. No trial.', featured: true },
 ]
 
 const prepaidOffers = [
@@ -20,7 +20,8 @@ const features = [
   { name: 'Tier Discord access', values: ['ALL-STAR channels', 'HIGHROLLER channels'] },
   { name: 'Free trial', values: ['7 days; no automatic charge', 'Not offered'] },
   { name: 'Interactive cached stats tools', values: ['Matchups, recent form, schedules, results', 'Matchups, recent form, schedules, results'] },
-  { name: 'On-demand refresh', values: ['Not included', 'Today’s events only; 5 per person/day, shared quota and cooldown; pending activation'] },
+  { name: 'Player & driver stats', values: ['Paid access only: cached game/session reports where supported; pending deployment', 'Cached game/session reports with limited refresh where supported; pending deployment'] },
+  { name: 'On-demand refresh', values: ['Not included', 'Today’s events or one supported player/driver game/session; 5 per person/day, shared quota and cooldown; pending activation'] },
   { name: 'Member Bet Vault submissions', values: ['Verified paid access only; no trial submissions', 'Verified paid access required'] },
 ]
 
@@ -60,6 +61,7 @@ export default function MembershipPage() {
         </tr>)}</tbody>
       </table></div>
       <p className="membership-disclaimer">Tier benefits, role mappings, policies, and payment approval must be confirmed before enrollment opens. PLAYMAKER is the capper role, not a membership tier. No result, daily pick count, or profit is promised.</p>
+      <p className="membership-disclaimer">Player reports currently target NFL/NCAA football, basketball, soccer, and Formula 1 driver session results, subject to provider coverage. They are not available for every sport, league, game, or player. The shared cache is populated on demand; no complete season history is promised.</p>
     </section>
   </section>
 }

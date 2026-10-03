@@ -43,6 +43,29 @@ Use this document to onboard a new AI assistant to the product, repository, deci
 
 ### Proposed Memberships (Not Final Until Approved)
 
+Player-stat update: `/playerstats` reuses the same private guild-only
+membership/owner/moderator gate and refresh flags. Migration
+`20261003060000_player_game_stats.sql` creates a service-role-only shared
+per-game JSON cache. NFL/NCAA, basketball, soccer and F1 session-result adapters
+are implemented; refresh requests fetch one complete game's athletes with one
+budgeted provider call. Omit player to list available names/IDs, then select by
+unique name or ID. Soccer sometimes supplies ID 0: retain its named stats,
+explicitly mark the ID unavailable and allow name-only lookup, never invent IDs.
+F1 schedules/results expose session IDs and types, not fictional team scores.
+Paid ALL-STAR reads cache; trials remain excluded. No background player polling
+or historical backfill. Production migration/deployment and live authorization
+remain unverified; refresh activation gates still apply.
+
+User-supplied API-Sports PDF docs and bounded live samples verified NFL,
+basketball, soccer and F1 contracts; NCAA shares the documented NFL product.
+Actual basketball/soccer/F1 samples produced 24/40/22 individual reports offline.
+One soccer fixture had no stats, so coverage must not be assumed universal.
+Baseball/hockey/rugby/handball/volleyball docs expose no individual stat endpoints;
+these choices explicitly report the source gap. Cricket/cycling have no feed.
+MMA documents `fights/statistics/fighters`, but no completed cached fight existed
+to verify its schema; leave its adapter disabled until verified. API-NBA and AFL
+are separate products and have not been added to the quota model.
+
 Later owner decision: paying ALL-STAR gets cached stats; HIGHROLLER gets
 limited today-only provider refresh via `refresh: true`. Moderator role IDs
 1328120848992960543, 1347741218158678097, 1328149760766640190 grant stats

@@ -1,5 +1,43 @@
 # Proxmox deployment guide
 
+## Player and driver statistics
+
+Apply `supabase/migrations/20261003060000_player_game_stats.sql` after the
+membership and API-budget migrations, then restart the bot to register
+`/playerstats sport game_id player refresh`.
+Use a game ID from `/results` or `/schedule`; player accepts a name or provider ID.
+Omit player to list up to 20 available player/driver names and IDs. Searches
+still cover the whole cached response, not only the displayed roster.
+Reports show per-game provider groups, not calculated season totals. Supported
+adapters are NFL/NCAA football, basketball, soccer and Formula 1 session results.
+For F1, use `/results sport:formula-1` or `/schedule sport:formula-1` to get a
+session ID; practice/qualifying results are explicitly distinguished from races.
+F1 schedule/results refresh is disabled; driver-result refresh is game-specific.
+
+Paid ALL-STAR reads shared cached snapshots. HIGHROLLER, the owner grant, and
+approved moderators can populate/refresh a game's snapshot when
+`MEMBER_STATS_REFRESH_ENABLED` and `API_SPORTS_BUDGET_ENABLED` are enabled.
+Each uncached refresh makes exactly one request to the applicable product,
+under the existing 20 member/product/day, five/user/day and five-minute product
+cooldown limits. NFL and NCAA share American-football limits. A snapshot less
+than five minutes old is reused.
+Empty responses are cached but explicitly reported as unavailable, never zero.
+No automatic player polling or historical backfill is enabled.
+Do not enable the budget mid-day without accounting for prior provider usage.
+
+NFL, basketball, soccer and F1 responses were verified with bounded development
+samples. NCAA uses the documented same-product endpoint; competition-specific
+coverage is not yet verified live. One soccer fixture returned no stats while a
+different fixture returned two team rosters: availability varies by competition.
+
+Supplied API-Sports docs have no individual-player stat endpoints for baseball,
+hockey, rugby, handball or volleyball. Those choices explain that another source
+is needed instead of displaying team scores as player stats. Cricket/cycling
+have no configured feed. MMA documents `fights/statistics/fighters`, but no
+completed cached fight was available for schema verification, so its adapter is
+not enabled. API-NBA and AFL are separate products, not silently added to the
+tracked sports or existing quota model. This is not an all-sports rollout yet.
+
 This project is designed to run as a Python service on a Linux host, such as a Proxmox LXC or VM.
 
 ## 1. Prepare the Linux server

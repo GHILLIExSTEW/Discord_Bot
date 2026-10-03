@@ -11,8 +11,9 @@ from src.services.api_sports_multi_service import ApiSportsMultiService, DATE_PR
 SPORTS = {
     "nfl": "NFL", "ncaa": "College football", "basketball": "Basketball",
     "football": "Soccer", "hockey": "Hockey", "baseball": "Baseball",
+    "formula-1": "Formula 1",
 }
-FINAL = {"FT", "AOT"}
+FINAL = {"FT", "AOT", "AET", "PEN", "COMPLETED", "FINISHED"}
 
 
 def score(value) -> float | None:
@@ -48,7 +49,7 @@ def resolve_team(value: str, names: set[str]) -> str | None:
 
 
 class MemberStatsService:
-    """Read existing event caches only; member requests never refresh providers."""
+    """Cached reports with separately authorized, budgeted event refresh."""
 
     def __init__(self, database=None, clock=None):
         self.db = database or supabase_service
@@ -57,6 +58,8 @@ class MemberStatsService:
     def events(self, sport: str, upcoming: bool, team: str | None = None) -> list[dict]:
         if sport not in SPORTS:
             raise ValueError("Select a supported sport.")
+        if sport == "formula-1" and team is not None:
+            raise ValueError("Formula 1 schedules/results list sessions, not teams. Leave the team field empty.")
         now = self.clock()
         start = now if upcoming else now - timedelta(days=30)
         end = now + timedelta(days=7) if upcoming else now
@@ -67,6 +70,7 @@ class MemberStatsService:
             "game_id,kickoff_at,home_team_name,away_team_name,home_score,away_score,status_short,synced_at"
             if nfl else
             "event_id,start_at,home_name,away_name,home_score,away_score,status_code,synced_at"
+            + (",event_name,raw_event" if sport == "formula-1" else "")
         )
         rows = []
         # Fetch candidates safely, then resolve one team before displaying results.
@@ -101,6 +105,8 @@ class MemberStatsService:
                     "home_score": score(row["home_score"]), "away_score": score(row["away_score"]),
                     "status": row["status_short"] if nfl else row["status_code"],
                     "synced_at": row["synced_at"],
+                    "name": row.get("event_name"),
+                    "session": (row.get("raw_event") or {}).get("type") if sport == "formula-1" else None,
                 }
                 rows.append(event)
         if team is not None:
@@ -113,6 +119,8 @@ class MemberStatsService:
     def report(self, mode: str, sport: str, team: str | None = None, opponent: str | None = None) -> tuple[str, str]:
         if mode not in {"matchup", "teamstats", "schedule", "results"}:
             raise ValueError("Unknown stats report.")
+        if sport == "formula-1" and mode in {"teamstats", "matchup"}:
+            raise ValueError("Formula 1 supports /schedule, /results and /playerstats, not team-form or matchup reports.")
         if team is not None:
             team = team_name(team)
         if mode in {"teamstats", "matchup"} and team is None:
@@ -144,7 +152,12 @@ class MemberStatsService:
             stamp = int(parse_iso_datetime(row["start"]).timestamp())
             home_score, away_score = row["home_score"], row["away_score"]
             result = f"{home_score:g}–{away_score:g}" if home_score is not None and away_score is not None else "Scores unavailable"
-            lines.append(f"<t:{stamp}:f> • {row['home']} vs {row['away']} • {row['status']} • {result}")
+            if sport == "formula-1":
+                lines.append(f"<t:{stamp}:f> • {row['name']} • {row['session']} • {row['status']} • Session ID: {row['id']}")
+            else:
+                lines.append(f"<t:{stamp}:f> • {row['home']} vs {row['away']} • {row['status']} • {result}")
+                if sport in {"nfl", "ncaa", "basketball", "football"}:
+                    lines[-1] += f" • Game ID: {row['id']}"
         if mode == "teamstats":
             wins = losses = ties = 0
             points_for = points_against = 0.0
@@ -168,6 +181,8 @@ class MemberStatsService:
     def refresh(self, sport: str, user_id: int) -> str:
         if sport not in SPORTS:
             raise ValueError("Select a supported sport.")
+        if sport == "formula-1":
+            raise ValueError("Formula 1 schedules/results are cached only. Use /playerstats with a session ID for a limited driver-result refresh.")
         now = self.clock()
         day = now.astimezone(timezone.utc).date().isoformat()
         nfl = sport == "nfl"
