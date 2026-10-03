@@ -3,6 +3,9 @@ import math
 
 from src.datetime_utils import parse_iso_datetime
 from src.services.supabase_service import supabase_service
+from src.services.api_budget_service import member_request_user
+from src.services.api_sports_service import ApiSportsService, normalize_game
+from src.services.api_sports_multi_service import ApiSportsMultiService, DATE_PRODUCTS, DATE_PRODUCT_PARAMS, normalize_event
 
 SPORTS = {
     "nfl": "NFL", "ncaa": "College football", "basketball": "Basketball",
@@ -125,3 +128,35 @@ class MemberStatsService:
         updated = min(parse_iso_datetime(row["synced_at"]) for row in selected)
         lines.append(f"\nShowing {len(selected)} cached events maximum. Oldest displayed update: <t:{int(updated.timestamp())}:R>. Data may be stale or incomplete; scores are not betting advice.")
         return title, "\n".join(lines)
+
+    def refresh(self, sport: str, user_id: int) -> str:
+        if sport not in SPORTS:
+            raise ValueError("Select a supported sport.")
+        now = self.clock()
+        day = now.astimezone(timezone.utc).date().isoformat()
+        nfl = sport == "nfl"
+        query = self.db._ensure_client().table("api_sports_nfl_games" if nfl else "api_sports_events").select("synced_at")
+        if not nfl:
+            query = query.eq("sport_slug", sport)
+        column = "kickoff_at" if nfl else "start_at"
+        midnight = now.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        data = query.gte(column, midnight.isoformat()).lt(
+            column, (midnight + timedelta(days=1)).isoformat(),
+        ).order("synced_at", desc=True).limit(1).execute().data
+        if not isinstance(data, list):
+            raise RuntimeError("Refresh cache returned an invalid response.")
+        if data and timedelta(0) <= now - parse_iso_datetime(data[0]["synced_at"]) < timedelta(minutes=5):
+            return "Today's cache was updated within five minutes; reused it without a provider call. Other dates remain cached."
+        token = member_request_user.set(str(user_id))
+        try:
+            if sport == "nfl":
+                api = ApiSportsService(client=self.db._ensure_client())
+                rows = api._request("games", {"date": day, "league": 1})
+                api._upsert("api_sports_nfl_games", [normalize_game(row, now) for row in rows], "game_id")
+            else:
+                api = ApiSportsMultiService(client=self.db._ensure_client())
+                rows = api._request(*DATE_PRODUCTS[sport], params={"date": day, **DATE_PRODUCT_PARAMS.get(sport, {})})
+                api._store_events([normalize_event(sport, row, now) for row in rows])
+        finally:
+            member_request_user.reset(token)
+        return f"Provider refresh completed for {day} (UTC) only, at <t:{int(now.timestamp())}:T>. Other dates remain cached. Provider data may lag; this is not a real-time guarantee."

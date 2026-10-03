@@ -7,6 +7,7 @@ import requests
 
 from src.config import API_SPORTS_BASE_URL, API_SPORTS_KEY
 from src.datetime_utils import parse_iso_datetime
+from src.services.api_budget_service import reserve_request
 from src.services.supabase_service import supabase_service
 
 NFL_LEAGUE_ID = 1
@@ -111,6 +112,7 @@ class ApiSportsService:
     def _request(self, endpoint: str, params: dict | None = None) -> list[dict]:
         if not self.api_key:
             raise RuntimeError("API_SPORTS_KEY is not configured.")
+        reserve_request(self.base_url)
         response = self.get(
             f"{self.base_url}/{endpoint.lstrip('/')}",
             params=params or {},

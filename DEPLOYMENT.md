@@ -193,6 +193,40 @@ retention policy; there is no automatic retention cleanup in this release.
 
 ### HIGHROLLER cached stats tools
 
+#### Cached ALL-STAR and limited HIGHROLLER/moderator refresh
+
+The later tier change enables cached commands for both verified paying tiers,
+not trials. HIGHROLLER and configured-guild members holding moderator roles
+`1328120848992960543`, `1347741218158678097`, or `1328149760766640190`
+may request `refresh: true`. Role grants apply only while held and only to
+stats, never vault or billing/admin access. Existing owner grants also qualify.
+
+Apply `20261003050000_api_request_budget.sql` before activation. Set
+`API_SPORTS_BUDGET_ENABLED=1` and `MEMBER_STATS_REFRESH_ENABLED=1` together,
+after the provider's daily quota resets and with no other unmetered API callers.
+Both default off. Existing calls before activation or outside this bot are not
+counted; do not enable mid-day assuming a fresh 100 requests are available.
+Confirm the provider's reset timezone (the ledger uses UTC days) and data-display
+license before enabling. SQL reservation behavior still requires live validation.
+
+Every request through the NFL and multi-sport transports, including scheduled
+refreshes and vault settlement, reserves a persistent allowance before network
+I/O. American-football is shared by NFL and NCAA. Strict product daily ceilings:
+80 system requests and 20 member requests; five member refreshes per Discord
+user per UTC day across all products. Member calls share a five-minute product
+cooldown. Reservations count failed attempts and are not refunded.
+At exhaustion, no provider request is made; errors are surfaced/logged.
+The system ceiling can defer settlement checks and scheduled refreshes.
+This prevents member usage from consuming the protected system allocation;
+it does not guarantee that 80 requests suffice for all operational demand.
+
+The initial member refresh fetches today's UTC events only (one request),
+updates the shared cache, and rereads the report. Other dates remain cached.
+Fresh event cache data within five minutes is reused without a provider call.
+Responses disclose this scope and cache age; no historic/weekly refresh or
+real-time guarantee is offered. Cooldown/quota denials are explicit rather than
+silently presenting stale data as fresh.
+
 #### Lifetime owner exception
 
 After the stats-access migration, apply

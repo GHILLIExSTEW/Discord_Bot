@@ -43,6 +43,20 @@ Use this document to onboard a new AI assistant to the product, repository, deci
 
 ### Proposed Memberships (Not Final Until Approved)
 
+Later owner decision: paying ALL-STAR gets cached stats; HIGHROLLER gets
+limited today-only provider refresh via `refresh: true`. Moderator role IDs
+1328120848992960543, 1347741218158678097, 1328149760766640190 grant stats
+refresh only while held in configured GUILD_ID, not vault access.
+Migration `20261003050000_api_request_budget.sql` adds persistent atomic
+product/day and member/day reservations: 80 system + 20 member per product,
+5 member refreshes per user/day, 5-minute shared product cooldown, UTC reset.
+NFL/NCAA share American-football. All NFL/multi transports are hooked,
+including vault calls. Flags API_SPORTS_BUDGET_ENABLED and
+MEMBER_STATS_REFRESH_ENABLED default off; activate together only after
+confirming reset timezone/current provider usage and applying migration.
+Fresh today-cache is reused; other dates remain cached. SQL concurrency,
+actual provider requests, and positive live refresh are not verified.
+
 HIGHROLLER cached tools implemented: guild-only ephemeral `/matchup`,
 `/teamstats`, `/schedule`, `/results`. New migration
 `20261003030000_highroller_stats_access.sql` adds a seller/plan-scoped,

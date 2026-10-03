@@ -99,7 +99,15 @@ the production access test pass.
 
 ## 4. Access and Discord Roles
 
-HIGHROLLER's first implemented tool bundle is private cached `/matchup`,
+The later tier split supersedes the original HIGHROLLER-only cache proposal:
+paid ALL-STAR and HIGHROLLER can use cached reports; HIGHROLLER and approved
+moderator roles can request today's data refresh with limits. Refresh remains
+disabled pending budget migration, quota-reset confirmation, licensing, and
+live validation. Five refreshes per person/day share twenty per API product/day,
+with five-minute shared cooldown; eighty requests are allocated separately to
+bot operations. Other dates remain cached. Trial access is still excluded.
+
+HIGHROLLER's first implemented tool bundle was private cached `/matchup`,
 `/teamstats` (recent form, not season standings), `/schedule`, and `/results`
 commands. ALL-STAR and trials do not qualify. Tools require the new
 HIGHROLLER-access migration and server deployment; they have not yet passed a

@@ -8,6 +8,7 @@ import requests
 
 from src.config import API_SPORTS_KEY
 from src.datetime_utils import parse_iso_datetime
+from src.services.api_budget_service import reserve_request
 from src.services.supabase_service import supabase_service
 
 TRACKER_TIMEZONE = ZoneInfo("America/New_York")
@@ -148,6 +149,7 @@ class ApiSportsMultiService:
     def _request(self, base_url: str, endpoint: str, params: dict) -> list[dict]:
         if not self.api_key:
             raise RuntimeError("API_SPORTS_KEY is not configured.")
+        reserve_request(base_url)
         response = self.get(f"{base_url}/{endpoint}", params=params, headers={"x-apisports-key": self.api_key}, timeout=30)
         self.request_count += 1
         response.raise_for_status()

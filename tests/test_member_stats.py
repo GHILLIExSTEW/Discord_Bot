@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
+import discord
 
 import pytest
 
@@ -103,6 +104,7 @@ def interaction():
 def test_tier_gate_before_cache_reads(allowed):
     member = Mock()
     member.has_highroller_access.return_value = allowed
+    member.has_paid_access.return_value = allowed
     cache = Mock()
     cache.report.return_value = ("Results", "cached")
     target = interaction()
@@ -170,3 +172,68 @@ def test_oversized_report_is_explicit_error_not_silently_truncated():
     with patch("src.member_stats.WHOP_MEMBERSHIP_SYNC_ENABLED", True):
         asyncio.run(MemberStats(member, cache).respond(target, "results", "nfl"))
     assert "temporarily unavailable" in target.followup.send.call_args.args[0]
+
+
+def test_allstar_can_read_cache_but_not_refresh():
+    member, cache = Mock(), Mock()
+    member.has_highroller_access.return_value = False
+    member.has_paid_access.return_value = True
+    cache.report.return_value = ("Results", "cached")
+    with patch("src.member_stats.WHOP_MEMBERSHIP_SYNC_ENABLED", True):
+        asyncio.run(MemberStats(member, cache).respond(interaction(), "results", "nfl"))
+        target = interaction()
+        asyncio.run(MemberStats(member, cache).respond(target, "results", "nfl", refresh=True))
+    cache.report.assert_called_once()
+    cache.refresh.assert_not_called()
+    assert "On-demand refresh requires" in target.followup.send.call_args.args[0]
+
+
+def test_highroller_refreshes_and_rereads_cache():
+    member, cache = Mock(), Mock()
+    member.has_highroller_access.return_value = True
+    cache.report.return_value = ("Results", "cached")
+    cache.refresh.return_value = "Refreshed today only"
+    target = interaction()
+    with patch("src.member_stats.WHOP_MEMBERSHIP_SYNC_ENABLED", True), patch(
+        "src.member_stats.MEMBER_STATS_REFRESH_ENABLED", True,
+    ):
+        asyncio.run(MemberStats(member, cache).respond(target, "results", "nfl", refresh=True))
+    cache.refresh.assert_called_once_with("nfl", 123)
+    assert cache.report.call_count == 2
+    assert "Refreshed today only" in target.followup.send.call_args.kwargs["embed"].description
+
+
+@pytest.mark.parametrize("role_id", [1328120848992960543, 1347741218158678097, 1328149760766640190])
+def test_configured_guild_moderator_role_grants_stats_only(role_id):
+    member, cache = Mock(), Mock()
+    cache.report.return_value = ("Results", "cached")
+    cache.refresh.return_value = "Refreshed today only"
+    target = interaction()
+    target.guild_id = 1234
+    target.user = Mock(spec=discord.Member)
+    target.user.id = 123
+    target.user.roles = [SimpleNamespace(id=role_id)]
+    with patch("src.member_stats.GUILD_ID", 1234), patch(
+        "src.member_stats.WHOP_MEMBERSHIP_SYNC_ENABLED", True,
+    ), patch("src.member_stats.MEMBER_STATS_REFRESH_ENABLED", True):
+        asyncio.run(MemberStats(member, cache).respond(target, "results", "nfl", refresh=True))
+    member.has_highroller_access.assert_not_called()
+    member.has_paid_access.assert_not_called()
+    cache.refresh.assert_called_once_with("nfl", 123)
+
+
+def test_moderator_role_from_other_guild_does_not_grant_access():
+    member, cache = Mock(), Mock()
+    member.has_highroller_access.return_value = False
+    member.has_paid_access.return_value = False
+    target = interaction()
+    target.guild_id = 9999
+    target.user = Mock(spec=discord.Member)
+    target.user.id = 123
+    target.user.roles = [SimpleNamespace(id=1328120848992960543)]
+    with patch("src.member_stats.GUILD_ID", 1234), patch(
+        "src.member_stats.WHOP_MEMBERSHIP_SYNC_ENABLED", True,
+    ):
+        asyncio.run(MemberStats(member, cache).respond(target, "results", "nfl", refresh=True))
+    cache.refresh.assert_not_called()
+    cache.report.assert_not_called()
