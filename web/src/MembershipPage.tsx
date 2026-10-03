@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 
 const plans = [
   { name: 'ALL-STAR', price: '$9.99', summary: 'ALL-STAR Discord access, with an optional free seven-day trial. The trial expires without a charge and does not include Member Vault submissions.', featured: false },
-  { name: 'HIGHROLLER', price: '$29.99', summary: 'HIGHROLLER Discord access. Paid-only; no free trial. Review included channels and benefits before purchasing.', featured: true },
+  { name: 'HIGHROLLER', price: '$29.99', summary: 'HIGHROLLER Discord access plus private cached matchup, recent team form, schedule, and score commands. Paid-only; no free trial. Tools await server deployment and verification.', featured: true },
 ]
 
 const prepaidOffers = [
@@ -19,6 +19,7 @@ const features = [
   { name: 'Weekly recap', values: ['Included', 'Included'] },
   { name: 'Tier Discord access', values: ['ALL-STAR channels', 'HIGHROLLER channels'] },
   { name: 'Free trial', values: ['7 days; no automatic charge', 'Not offered'] },
+  { name: 'Interactive cached stats tools', values: ['Not included', 'Matchups, recent form, schedules, results; pending deployment'] },
   { name: 'Member Bet Vault submissions', values: ['Verified paid access only; no trial submissions', 'Verified paid access required'] },
 ]
 

@@ -191,6 +191,29 @@ retention policy; there is no automatic retention cleanup in this release.
 
 ## 10. Whop paid-membership verification
 
+### HIGHROLLER cached stats tools
+
+Apply `supabase/migrations/20261003030000_highroller_stats_access.sql` after
+the prepaid migration, then deploy/restart the bot. This adds a service-role-only
+seller/plan-scoped lookup; missing schema fails closed without preventing the
+rest of the bot from starting. `WHOP_HIGHROLLER_PLAN_IDS` defaults to the four
+existing HIGHROLLER prepaid IDs in `.env.example`; it must be a nonempty subset
+of `WHOP_PAID_PLAN_IDS`. For other Whop products, explicitly override these IDs.
+Sync must be enabled. No Discord-role or operator bypass grants these tools.
+
+Commands `/matchup`, `/teamstats`, `/schedule`, and `/results` are private,
+guild-only, and require current paid HIGHROLLER access. ALL-STAR, free trials,
+refunds, expiry, and stale snapshots deny access. Supported sports: NFL, college
+football, basketball, soccer, hockey, and baseball. Use full team names.
+Schedule/matchup reads cover the next seven days; results/recent-form reads
+cover the past 30 days. Up to ten events are displayed from bounded cached
+queries; recent form is not complete season standings. Reports disclose cache
+age, missing scores, and incomplete data. There are no member-triggered live
+provider calls, refreshes, new API keys, or extra provider quota usage.
+Existing bot refresh jobs own freshness. These caches are also used by public
+website features; this tier sells convenience, not exclusive underlying data.
+Confirm API-Sports display rights before advertising/launching.
+
 ### Prepaid offers (current)
 
 The owner replaced automatic renewal with one-time prepaid terms. All eight

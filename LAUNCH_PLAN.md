@@ -99,6 +99,14 @@ the production access test pass.
 
 ## 4. Access and Discord Roles
 
+HIGHROLLER's first implemented tool bundle is private cached `/matchup`,
+`/teamstats` (recent form, not season standings), `/schedule`, and `/results`
+commands. ALL-STAR and trials do not qualify. Tools require the new
+HIGHROLLER-access migration and server deployment; they have not yet passed a
+live paid production test. No direct API access or member-triggered live refresh
+is offered. Public cache data is not claimed exclusive. Confirm data-display
+licensing and deployment before advertising these tools as available.
+
 Current tier roles:
 
 - `Visitor`: joined Discord but has no website entitlement.

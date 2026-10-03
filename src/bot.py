@@ -14,6 +14,7 @@ from src.config import API_SPORTS_KEY, APPLICATION_ID, CONFIRMATION_CHANNEL_ID, 
 from src.member_bet_vault import MemberBetVault
 from src.config import PAID_MEMBER_ROLE_ID, WHOP_MEMBERSHIP_SYNC_ENABLED
 from src.membership_access import MembershipRoleSync, WhopMembershipSync
+from src.member_stats import MemberStats
 from src.services.membership_service import MembershipService
 from src.services.official_play_service import OfficialPlayService
 from src.services.supabase_service import supabase_service
@@ -41,6 +42,7 @@ intents.reactions = True
 
 class OfficialBot(commands.Bot):
     async def setup_hook(self) -> None:
+        await self.add_cog(MemberStats())
         if whop_membership_sync is not None:
             await asyncio.to_thread(whop_membership_sync.service.ready)
         if PAID_MEMBER_ROLE_ID:

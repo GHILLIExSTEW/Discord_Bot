@@ -43,6 +43,19 @@ Use this document to onboard a new AI assistant to the product, repository, deci
 
 ### Proposed Memberships (Not Final Until Approved)
 
+HIGHROLLER cached tools implemented: guild-only ephemeral `/matchup`,
+`/teamstats`, `/schedule`, `/results`. New migration
+`20261003030000_highroller_stats_access.sql` adds a seller/plan-scoped,
+service-role-only eligibility RPC. Deploy it before using the commands;
+missing RPC errors are logged and fail closed, not a bot startup blocker.
+Current HIGHROLLER plan IDs default in config but must be a subset of the
+paid allowlist. Tools do not invoke provider APIs; existing refresh jobs own
+cache freshness. Team form is up to ten recent finals within 30 days, not
+season standings; schedules cover seven days. ALL-STAR/trials are excluded.
+145 affected tests and live read-only NFL/basketball/college schedule cache
+reads passed. Positive live HIGHROLLER authorization is not verified.
+API-Sports display licensing remains a launch gate.
+
 Current October 3 decision: only ALL-STAR and HIGHROLLER membership roles.
 ALL-STAR product `prod_0Bi4ERPCfSWz1` contains the free seven-day one-time trial
 `plan_ejj9LwTfrJp5z` and four existing paid passes. Trial expires without a
