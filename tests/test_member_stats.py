@@ -55,12 +55,30 @@ def test_matchup_filters_other_opponents():
     assert "Home vs Away" in report and "Different" not in report
 
 
-def test_exact_names_and_wildcard_escaping():
+def test_unique_short_name_and_wildcard_escaping():
     service, query = stats([event(home_name="Home Extended")])
     _, report = service.report("teamstats", "basketball", "Home")
-    assert "No matching" in report
+    assert "Home Extended" in report
     service.events("basketball", True, "100%_Team")
-    assert query.ilike.call_args.args == ("away_name", "100\\%\\_Team")
+    assert query.ilike.call_args.args == ("away_name", "%100%")
+
+
+def test_lsu_tigers_resolves_cached_lsu():
+    service, _ = stats([event(home_name="LSU", away_name="McNeese", status_code="NS")])
+    _, report = service.report("schedule", "ncaa", "LSU Tigers")
+    assert "LSU vs McNeese" in report
+
+
+def test_ambiguous_team_name_does_not_merge_teams():
+    service, _ = stats([event(home_name="New York Jets"), event(event_id="2", home_name="New York Giants")])
+    with pytest.raises(ValueError, match="ambiguous"):
+        service.report("schedule", "basketball", "New York")
+
+
+def test_expanded_home_name_stats_use_correct_side():
+    service, _ = stats([event(home_name="LSU", away_name="McNeese")])
+    _, report = service.report("teamstats", "ncaa", "LSU Tigers")
+    assert "1W / 0L / 0T" in report
 
 
 def test_nfl_cache_normalization():

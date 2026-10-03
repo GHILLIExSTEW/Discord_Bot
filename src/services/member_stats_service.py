@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import math
+import re
 
 from src.datetime_utils import parse_iso_datetime
 from src.services.supabase_service import supabase_service
@@ -29,6 +30,23 @@ def team_name(value: str) -> str:
     return value
 
 
+def name_tokens(value: str) -> set[str]:
+    return set(re.findall(r"[a-z0-9]+", value.casefold()))
+
+
+def resolve_team(value: str, names: set[str]) -> str | None:
+    exact = sorted(name for name in names if name.casefold() == value.casefold())
+    if exact:
+        return exact[0]
+    tokens = name_tokens(value)
+    candidates = sorted(name for name in names if tokens and name_tokens(name) and (
+        tokens <= name_tokens(name) or name_tokens(name) <= tokens
+    ))
+    if len(candidates) > 1:
+        raise ValueError("Team name is ambiguous. Use one of: " + ", ".join(candidates[:10]))
+    return candidates[0] if candidates else None
+
+
 class MemberStatsService:
     """Read existing event caches only; member requests never refresh providers."""
 
@@ -51,20 +69,30 @@ class MemberStatsService:
             "event_id,start_at,home_name,away_name,home_score,away_score,status_code,synced_at"
         )
         rows = []
-        # Two exact-name queries avoid ambiguous substring matches and filter syntax interpolation.
+        # Fetch candidates safely, then resolve one team before displaying results.
         for side in (["home", "away"] if team is not None else [None]):
             query = self.db._ensure_client().table(table).select(fields)
             if not nfl:
                 query = query.eq("sport_slug", sport)
             if side:
                 name = team_name(team)
+                words = re.findall(r"[^\W_]+", name, re.UNICODE)
+                if not words:
+                    raise ValueError("Enter a team name containing letters or numbers.")
+                # Leading token handles provider abbreviations (LSU vs LSU Tigers).
                 pattern = name.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                if len(words) == 1:
+                    pattern = "%" + pattern + "%"
+                else:
+                    pattern = "%" + words[0] + "%"
                 query = query.ilike(f"{side}_team_name" if nfl else f"{side}_name", pattern)
             data = query.gte(time_column, start.isoformat()).lte(time_column, end.isoformat()).order(
                 time_column, desc=not upcoming,
             ).limit(100).execute().data
             if not isinstance(data, list) or any(not isinstance(row, dict) for row in data):
                 raise RuntimeError("Sports cache returned an invalid response.")
+            if team is not None and len(data) >= 100:
+                raise ValueError("Team search is too broad. Use a more specific team name.")
             for row in data:
                 event = {
                     "id": row["game_id"] if nfl else row["event_id"],
@@ -74,8 +102,11 @@ class MemberStatsService:
                     "status": row["status_short"] if nfl else row["status_code"],
                     "synced_at": row["synced_at"],
                 }
-                if team is None or name.casefold() in {str(event["home"]).casefold(), str(event["away"]).casefold()}:
-                    rows.append(event)
+                rows.append(event)
+        if team is not None:
+            names = {str(row[side]) for row in rows for side in ("home", "away") if row[side]}
+            resolved = resolve_team(team_name(team), names)
+            rows = [row for row in rows if resolved in {row["home"], row["away"]}] if resolved else []
         unique = {row["id"]: row for row in rows}
         return sorted(unique.values(), key=lambda row: parse_iso_datetime(row["start"]), reverse=not upcoming)
 
@@ -93,10 +124,15 @@ class MemberStatsService:
             if team.casefold() == opponent.casefold():
                 raise ValueError("Choose two different teams.")
         rows = self.events(sport, mode in {"schedule", "matchup"}, team)
+        resolved_team = resolve_team(team, {
+            str(row[side]) for row in rows for side in ("home", "away") if row[side]
+        }) if team and rows else team
         if mode == "matchup":
-            rows = [row for row in rows if opponent.casefold() in {
-                str(row["home"]).casefold(), str(row["away"]).casefold(),
-            }]
+            resolved_opponent = resolve_team(opponent, {
+                str(row[side]) for row in rows for side in ("home", "away")
+                if row[side] and row[side] != resolved_team
+            })
+            rows = [row for row in rows if resolved_opponent in {row["home"], row["away"]}] if resolved_opponent else []
         if mode in {"results", "teamstats"}:
             rows = [row for row in rows if row["status"] in FINAL]
         title = f"{SPORTS[sport]} • {mode.title()}"
@@ -113,7 +149,7 @@ class MemberStatsService:
             wins = losses = ties = 0
             points_for = points_against = 0.0
             for row in selected:
-                own, other = (row["home_score"], row["away_score"]) if str(row["home"]).casefold() == team.casefold() else (row["away_score"], row["home_score"])
+                own, other = (row["home_score"], row["away_score"]) if row["home"] == resolved_team else (row["away_score"], row["home_score"])
                 if own is not None and other is not None:
                     wins += own > other
                     losses += own < other

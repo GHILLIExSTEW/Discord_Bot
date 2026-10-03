@@ -261,6 +261,9 @@ Commands `/matchup`, `/teamstats`, `/schedule`, and `/results` are private,
 guild-only, and require current paid HIGHROLLER access. ALL-STAR, free trials,
 refunds, expiry, and stale snapshots deny access. Supported sports: NFL, college
 football, basketball, soccer, hockey, and baseball. Use full team names.
+Unique shortened/expanded team names resolve against cached names (for example,
+`LSU Tigers` can resolve `LSU`). Exact names take precedence; ambiguous names
+produce suggestions, never merged records. No name matching triggers API calls.
 Schedule/matchup reads cover the next seven days; results/recent-form reads
 cover the past 30 days. Up to ten events are displayed from bounded cached
 queries; recent form is not complete season standings. Reports disclose cache
